@@ -14,14 +14,33 @@
           <span class="brand-mark" aria-hidden="true">P</span>
           <div>
             <p class="eyebrow">PITCHPILOT AI</p>
-            <h1>Prepare Your Session</h1>
+            <h1>Prepare your session</h1>
           </div>
         </div>
-        <button id="settings-toggle" class="icon-button" type="button" aria-label="Connection settings" aria-expanded="false" title="Connection settings">
+        <nav class="top-actions" aria-label="Account actions">
+          <a id="support-link" class="top-link" href="#">Support</a>
+          <span id="credit-badge" class="credit-badge" aria-live="polite">Connect account</span>
+          <a id="upgrade-link" class="top-link top-link-upgrade" href="#">Upgrade</a>
+          <button id="settings-toggle" class="icon-button" type="button" aria-label="Connection settings" aria-controls="connection-settings" aria-expanded="false" title="Connection settings">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .8v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.8l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.8-3H4a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .8-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.8V2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .8l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .8 3h.2a1.8 1.8 0 0 1 0 3.6H20a1.8 1.8 0 0 0-.6 2.9Z"/></svg>
         </button>
+        </nav>
       </header>
 
+      <div class="workspace">
+        <aside class="session-sidebar" aria-label="Session setup steps">
+          <p class="sidebar-label">YOUR SESSION</p>
+          <ol class="stepper" aria-label="Session setup progress">
+            <li><button id="step-context-indicator" class="step-marker active" type="button" aria-current="step"><span>1</span><strong>Context</strong></button></li>
+            <li class="step-line" aria-hidden="true"></li>
+            <li><button id="step-preferences-indicator" class="step-marker" type="button"><span>2</span><strong>Preferences</strong></button></li>
+          </ol>
+          <div class="account-footer">
+            <span class="sidebar-label">SIGNED IN AS</span>
+            <strong id="signed-user">Not connected</strong>
+          </div>
+        </aside>
+        <div class="content-column">
       <div id="status" class="status" role="status" aria-live="polite" data-state="idle">
         <span class="status-dot" aria-hidden="true"></span>
         <div class="status-copy">
@@ -32,17 +51,11 @@
       <p id="app-message" class="app-message" role="alert" hidden></p>
 
       <section id="setup-view" class="view">
-        <div class="stepper" aria-label="Session setup progress">
-          <div id="step-context-indicator" class="step-marker active"><span>1</span><strong>Context</strong></div>
-          <div class="step-line"></div>
-          <div id="step-preferences-indicator" class="step-marker"><span>2</span><strong>Preferences</strong></div>
-        </div>
-
         <section id="context-step" class="panel wizard-step" aria-labelledby="context-heading">
           <div class="section-head">
             <div>
               <p class="eyebrow">STEP 1</p>
-              <h2 id="context-heading">Session context</h2>
+              <h2 id="context-heading" tabindex="-1">Session context</h2>
             </div>
           </div>
 
@@ -83,7 +96,7 @@
           <div class="section-head">
             <div>
               <p class="eyebrow">STEP 2</p>
-              <h2 id="preferences-heading">Your preferences</h2>
+              <h2 id="preferences-heading" tabindex="-1">Your preferences</h2>
             </div>
           </div>
           <label class="field" for="language-select">Response language
@@ -166,6 +179,8 @@
         <p id="settings-message" class="message" role="status" aria-live="polite"></p>
       </details>
 
+        </div>
+      </div>
       <p class="footer">Use only where permitted. Verify suggested answers and code.</p>
     </main>
     <script src="common.js"></script>

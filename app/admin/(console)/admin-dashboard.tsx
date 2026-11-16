@@ -62,14 +62,25 @@ export default function AdminDashboard({
   initialSettings,
   totalUsers,
   proUsers,
+  section = "overview",
 }: {
-  initialUsers: User[]
-  initialSettings: Settings
-  totalUsers: number
-  proUsers: number
+  initialUsers?: User[]
+  initialSettings?: Partial<Settings>
+  totalUsers?: number
+  proUsers?: number
+  section?: "overview" | "users" | "promos" | "settings" | "upi-payments" | "support"
 }) {
-  const [users, setUsers] = useState(initialUsers)
-  const [settings, setSettings] = useState(initialSettings)
+  const [users, setUsers] = useState(initialUsers ?? [])
+  const [settings, setSettings] = useState<Settings>({
+    heroTitle: "",
+    heroSubtitle: "",
+    starterCredits: 0,
+    weeklyPriceInr: 0,
+    monthlyPriceInr: 0,
+    upiId: "",
+    upiPayeeName: "",
+    ...initialSettings,
+  })
   const [bonus, setBonus] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState("")
   const [message, setMessage] = useState("")
@@ -80,9 +91,8 @@ export default function AdminDashboard({
   const [paymentMessage, setPaymentMessage] = useState("")
   const [busyPaymentId, setBusyPaymentId] = useState("")
   const paymentBusyRef = useRef(false)
-  const [activeTab, setActiveTab] = useState<"members" | "promos">("members")
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
-  const [promoLoading, setPromoLoading] = useState(true)
+  const [promoLoading, setPromoLoading] = useState(section === "promos")
   const [promoBusy, setPromoBusy] = useState(false)
   const [promoError, setPromoError] = useState("")
   const [promoMessage, setPromoMessage] = useState("")
@@ -91,7 +101,7 @@ export default function AdminDashboard({
     code: "", bonusCredits: "0", discountPercent: "0", maxUses: "", expiresAt: "", isActive: true,
   })
   const [summary, setSummary] = useState<{ approvedRevenueInr: number; aiCreditsUsed: number } | null>(null)
-  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [summaryLoading, setSummaryLoading] = useState(section === "overview")
   const [summaryError, setSummaryError] = useState("")
 
   async function getPendingPayments(signal?: AbortSignal): Promise<PendingPayment[]> {
@@ -102,6 +112,7 @@ export default function AdminDashboard({
   }
 
   useEffect(() => {
+    if (section !== "upi-payments") return
     const controller = new AbortController()
     getPendingPayments(controller.signal)
       .then(setPendingPayments)
@@ -114,7 +125,7 @@ export default function AdminDashboard({
         if (!controller.signal.aborted) setPaymentsLoading(false)
       })
     return () => controller.abort()
-  }, [])
+  }, [section])
 
   async function loadPromoCodes(signal?: AbortSignal) {
     const response = await fetch("/api/admin/promo-codes", { cache: "no-store", signal })
@@ -125,31 +136,35 @@ export default function AdminDashboard({
 
   useEffect(() => {
     const controller = new AbortController()
-    loadPromoCodes(controller.signal)
-      .then(setPromoCodes)
-      .catch((loadError: unknown) => {
-        if (!controller.signal.aborted) setPromoError(loadError instanceof Error ? loadError.message : "Could not load promo codes.")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setPromoLoading(false)
-      })
-    fetch("/api/admin/summary", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
-        const data: { error?: string; approvedRevenueInr?: number; aiCreditsUsed?: number } = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.error || `Could not load revenue summary (HTTP ${response.status}).`)
-        setSummary({
-          approvedRevenueInr: Number(data.approvedRevenueInr) || 0,
-          aiCreditsUsed: Number(data.aiCreditsUsed) || 0,
+    if (section === "promos") {
+      loadPromoCodes(controller.signal)
+        .then(setPromoCodes)
+        .catch((loadError: unknown) => {
+          if (!controller.signal.aborted) setPromoError(loadError instanceof Error ? loadError.message : "Could not load promo codes.")
         })
-      })
-      .catch((loadError: unknown) => {
-        if (!controller.signal.aborted) setSummaryError(loadError instanceof Error ? loadError.message : "Could not load revenue summary.")
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setSummaryLoading(false)
-      })
+        .finally(() => {
+          if (!controller.signal.aborted) setPromoLoading(false)
+        })
+    }
+    if (section === "overview") {
+      fetch("/api/admin/summary", { cache: "no-store", signal: controller.signal })
+        .then(async (response) => {
+          const data: { error?: string; approvedRevenueInr?: number; aiCreditsUsed?: number } = await response.json().catch(() => ({}))
+          if (!response.ok) throw new Error(data.error || `Could not load revenue summary (HTTP ${response.status}).`)
+          setSummary({
+            approvedRevenueInr: Number(data.approvedRevenueInr) || 0,
+            aiCreditsUsed: Number(data.aiCreditsUsed) || 0,
+          })
+        })
+        .catch((loadError: unknown) => {
+          if (!controller.signal.aborted) setSummaryError(loadError instanceof Error ? loadError.message : "Could not load revenue summary.")
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSummaryLoading(false)
+        })
+    }
     return () => controller.abort()
-  }, [])
+  }, [section])
 
   async function refreshUsers() {
     const response = await fetch("/api/admin/users", { cache: "no-store" })
@@ -305,23 +320,33 @@ export default function AdminDashboard({
     }
   }
 
+  const sectionTitles = {
+    overview: "Admin overview",
+    users: "Users & Credits",
+    promos: "Promo Codes",
+    settings: "Site Settings",
+    "upi-payments": "Pending UPI Payments",
+    support: "Support Inbox",
+  } as const
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div id="overview" className="mb-8 scroll-mt-6">
+      <div className="mb-8">
         <Link href="/dashboard" className="mb-3 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Dashboard
         </Link>
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/20 bg-amber-400/10 text-amber-300"><Crown className="h-5 w-5" /></span>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Super Admin</h1>
-            <p className="mt-1 text-sm text-zinc-400">Manage member access, credits, and the public site.</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">{sectionTitles[section]}</h1>
+            <p className="mt-1 text-sm text-zinc-400">Super Admin · Manage member access, credits, and the public site.</p>
           </div>
         </div>
       </div>
 
-      {(message || error) && <p role={error ? "alert" : "status"} className={`mb-5 rounded-xl border px-4 py-3 text-sm ${error ? "border-red-500/30 bg-red-950/30 text-red-200" : "border-emerald-500/30 bg-emerald-950/30 text-emerald-200"}`}>{error || message}</p>}
+      {(section === "users" || section === "settings") && (message || error) && <p role={error ? "alert" : "status"} className={`mb-5 rounded-xl border px-4 py-3 text-sm ${error ? "border-red-500/30 bg-red-950/30 text-red-200" : "border-emerald-500/30 bg-emerald-950/30 text-emerald-200"}`}>{error || message}</p>}
 
+      {section === "overview" && <>
       <section aria-labelledby="revenue-usage-heading" className="mb-6 rounded-3xl border border-emerald-400/20 bg-gradient-to-r from-emerald-950/30 to-zinc-900/80 p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -340,18 +365,13 @@ export default function AdminDashboard({
       </section>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Members</p><p className="mt-2 text-3xl font-semibold text-white">{totalUsers}</p></div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Pro plans</p><p className="mt-2 text-3xl font-semibold text-indigo-300">{proUsers}</p></div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Free plans</p><p className="mt-2 text-3xl font-semibold text-zinc-200">{totalUsers - proUsers}</p></div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Members</p><p className="mt-2 text-3xl font-semibold text-white">{totalUsers ?? 0}</p></div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Pro plans</p><p className="mt-2 text-3xl font-semibold text-indigo-300">{proUsers ?? 0}</p></div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Free plans</p><p className="mt-2 text-3xl font-semibold text-zinc-200">{(totalUsers ?? 0) - (proUsers ?? 0)}</p></div>
       </div>
+      </>}
 
-      <div role="tablist" aria-label="Admin member tools" className="mb-4 flex flex-wrap gap-2">
-        <button id="members-tab" type="button" role="tab" aria-selected={activeTab === "members"} aria-controls="members-tabpanel" onClick={() => setActiveTab("members")} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 ${activeTab === "members" ? "bg-indigo-500 text-white" : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"}`}>Members</button>
-        <button id="promo-tab" type="button" role="tab" aria-selected={activeTab === "promos"} aria-controls="promo-tabpanel" onClick={() => setActiveTab("promos")} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 ${activeTab === "promos" ? "bg-indigo-500 text-white" : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"}`}><span className="inline-flex items-center gap-2"><TicketPercent className="h-4 w-4" aria-hidden="true" /> Promo Codes</span></button>
-      </div>
-
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-        {activeTab === "members" ? <section id="members-tabpanel" role="tabpanel" aria-labelledby="members-tab" className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70 scroll-mt-6">
+      {section === "users" && <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
           <div className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
             <Users className="h-5 w-5 text-indigo-300" />
             <div><h2 className="font-semibold text-white">Members</h2><p className="text-xs text-zinc-500">Manage plan access, Pro expiry, and bonus credits.</p></div>
@@ -387,7 +407,9 @@ export default function AdminDashboard({
               ))}
             </div>
           )}
-        </section> : <section id="promo-tabpanel" role="tabpanel" aria-labelledby="promo-tab" className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
+        </section>}
+
+      {section === "promos" && <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
           <div className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
             <TicketPercent className="h-5 w-5 text-indigo-300" aria-hidden="true" />
             <div><h2 className="font-semibold text-white">Promo Codes</h2><p className="text-xs text-zinc-500">Create credit bonuses and checkout discounts.</p></div>
@@ -422,7 +444,7 @@ export default function AdminDashboard({
           )}
         </section>}
 
-        <section id="site-settings" className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6 scroll-mt-6">
+      {section === "settings" && <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6">
           <div className="mb-5 flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-400/10 text-indigo-300"><Settings2 className="h-5 w-5" /></span>
             <div><h2 className="font-semibold text-white">Site settings</h2><p className="text-xs text-zinc-500">Homepage copy, starter credits, and INR pricing.</p></div>
@@ -440,10 +462,9 @@ export default function AdminDashboard({
               {busy === "settings" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : message === "Site settings saved." ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />} Save settings
             </button>
           </form>
-        </section>
-      </div>
+      </section>}
 
-      <section id="upi-payments" className="mt-6 scroll-mt-6 overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
+      {section === "upi-payments" && <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
         <div className="flex flex-col gap-3 border-b border-zinc-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
               <ClipboardCheck className="h-5 w-5 text-emerald-300" aria-hidden="true" />
@@ -487,9 +508,9 @@ export default function AdminDashboard({
               ))}
           </div>
         )}
-      </section>
+      </section>}
 
-      <SupportInbox upiId={settings.upiId} upiPayeeName={settings.upiPayeeName} />
+      {section === "support" && <SupportInbox upiId={settings.upiId} upiPayeeName={settings.upiPayeeName} />}
     </div>
   )
 }

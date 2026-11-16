@@ -66,6 +66,7 @@ export default function PricingOptions({
   const [qrError, setQrError] = useState<{ uri: string; message: string } | null>(null)
   const [checkoutPromoInput, setCheckoutPromoInput] = useState("")
   const [checkoutPromoCode, setCheckoutPromoCode] = useState("")
+  const [checkoutPromoApplied, setCheckoutPromoApplied] = useState(false)
   const [promoQuotes, setPromoQuotes] = useState<Partial<Record<Product, PromoQuote>>>({})
   const [quotesLoading, setQuotesLoading] = useState(false)
   const [quoteError, setQuoteError] = useState("")
@@ -148,6 +149,7 @@ export default function PricingOptions({
       if (!savedCode) return
       setCheckoutPromoInput(savedCode)
       setCheckoutPromoCode(savedCode)
+      setCheckoutPromoApplied(true)
       void loadPromoQuotes(savedCode)
     })
     return () => {
@@ -250,6 +252,7 @@ export default function PricingOptions({
     const code = checkoutPromoInput.trim().toUpperCase()
     setCheckoutPromoCode(code)
     setCheckoutPromoInput(code)
+    setCheckoutPromoApplied(Boolean(code))
     void loadPromoQuotes(code)
   }
 
@@ -258,13 +261,17 @@ export default function PricingOptions({
       quoteRequestRef.current += 1
       setCheckoutPromoInput("")
       setCheckoutPromoCode("")
+      setCheckoutPromoApplied(false)
       setPromoQuotes({})
       setQuoteError("")
       setQuotesLoading(false)
-      return
     }
+  }
+
+  function applyRedeemedPromo(promo: RedeemedPromo) {
     setCheckoutPromoInput(promo.code)
     setCheckoutPromoCode(promo.code)
+    setCheckoutPromoApplied(true)
     void loadPromoQuotes(promo.code)
   }
 
@@ -386,15 +393,19 @@ export default function PricingOptions({
       </header>
 
       <div className="mx-auto mb-8 grid max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-        <PromoCodeBox currentCredits={currentCredits} onRedeemed={onPromoRedeemed} />
-        <form onSubmit={applyCheckoutPromo} className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
+        <PromoCodeBox currentCredits={currentCredits} onRedeemed={onPromoRedeemed} onApply={applyRedeemedPromo} />
+        <form id="promo-checkout" onSubmit={applyCheckoutPromo} className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
           <label htmlFor="checkout-promo-code" className="block font-semibold text-white">Code to apply at checkout</label>
           <p className="mt-1 text-sm text-slate-400">Use a redeemed code for discounted pricing. Exact quotes come from billing.</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <input id="checkout-promo-code" value={checkoutPromoInput} onChange={(event) => setCheckoutPromoInput(event.target.value)} maxLength={64} autoComplete="off" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm uppercase text-white placeholder:normal-case placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30" placeholder="Enter or select a redeemed code" />
+            <input id="checkout-promo-code" value={checkoutPromoInput} onChange={(event) => { setCheckoutPromoInput(event.target.value); setCheckoutPromoApplied(false) }} maxLength={64} autoComplete="off" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm uppercase text-white placeholder:normal-case placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30" placeholder="Enter or select a redeemed code" />
             <button type="submit" className="min-h-11 rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Apply to checkout</button>
           </div>
-          {checkoutPromoCode && <p className="mt-3 text-xs text-emerald-200">Selected code: <strong>{checkoutPromoCode}</strong>{quotesLoading ? " · Fetching exact prices…" : ""}</p>}
+          {checkoutPromoCode && <p className="mt-3 text-xs text-emerald-200" role="status" aria-live="polite">
+            {checkoutPromoApplied ? "Applied to checkout: " : "Selected code: "}
+            <strong>{checkoutPromoCode}</strong>
+            {quotesLoading ? " · Fetching exact prices…" : checkoutPromoApplied && !quoteError ? " · Exact prices are ready below." : ""}
+          </p>}
           {quoteError && <p role="alert" className="mt-2 text-sm text-rose-300">{quoteError}</p>}
         </form>
       </div>

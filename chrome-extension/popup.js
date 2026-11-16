@@ -2,6 +2,7 @@
 
 const elements = {
   settingsToggle: document.getElementById("settings-toggle"),
+  homePanel: document.getElementById("home-panel"),
   settingsPanel: document.getElementById("settings-panel"),
   settingsClose: document.getElementById("settings-close"),
   backendOrigin: document.getElementById("backend-origin"),
@@ -23,8 +24,10 @@ function showSettingsMessage(message, kind = "") {
 }
 
 function setSettingsOpen(open) {
+  elements.homePanel.hidden = open;
   elements.settingsPanel.hidden = !open;
   elements.settingsToggle.setAttribute("aria-expanded", String(open));
+  elements.settingsToggle.setAttribute("aria-label", open ? "Return to PitchPilot home" : "Open connection settings");
 }
 
 async function loadPopup() {
@@ -96,8 +99,7 @@ async function connectAccount() {
   } catch (error) {
     elements.creditBadge.textContent = "Not connected";
     showSettingsMessage(error instanceof Error ? error.message : "Could not connect your account.", "error");
-    elements.settingsPanel.hidden = false;
-    elements.settingsToggle.setAttribute("aria-expanded", "true");
+    setSettingsOpen(true);
   } finally {
     elements.connectAccount.disabled = false;
   }

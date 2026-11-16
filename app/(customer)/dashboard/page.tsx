@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Video, Shield, FileText, ArrowRight, MessageSquare, CheckCircle, Sparkles, Coins } from "lucide-react"
 import PromoCodeBox from "@/components/promo-code-box"
+import LaunchCopilotButton from "@/components/launch-copilot-button"
 
 export default async function DashboardPage() {
   const auth = await getCurrentUser()
@@ -37,12 +38,7 @@ export default async function DashboardPage() {
             >
               <Coins className="w-5 h-5" aria-hidden="true" /> Billing / Upgrade
             </Link>
-            <Link
-              href="/copilot/new"
-              className="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
-            >
-              <Video className="w-5 h-5" /> Launch Copilot
-            </Link>
+            <LaunchCopilotButton />
             <Link
               href="/copilot/new?mode=MOCK_INTERVIEW"
               className="px-5 py-3.5 bg-purple-700 hover:bg-purple-600 text-white font-semibold rounded-2xl shadow-lg shadow-purple-700/20 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"

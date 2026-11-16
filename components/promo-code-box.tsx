@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import type { FormEvent } from "react"
+import { useRouter } from "next/navigation"
 import { LoaderCircle, TicketPercent } from "lucide-react"
 
 export type RedeemedPromo = {
@@ -14,14 +15,18 @@ export type RedeemedPromo = {
 export default function PromoCodeBox({
   currentCredits,
   onRedeemed,
+  onApply,
 }: {
   currentCredits: number | null
   onRedeemed?: (promo: RedeemedPromo) => void
+  onApply?: (promo: RedeemedPromo) => void
 }) {
+  const router = useRouter()
   const [code, setCode] = useState("")
   const [promo, setPromo] = useState<RedeemedPromo | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [appliedCode, setAppliedCode] = useState("")
 
   async function redeem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -54,10 +59,26 @@ export default function PromoCodeBox({
         window.localStorage.removeItem("redeemedPromoCode")
       }
       onRedeemed?.(redeemed)
+      if (redeemed.discountPercent > 0 && onApply) {
+        setAppliedCode(redeemed.code)
+        onApply(redeemed)
+      }
+      router.refresh()
     } catch (redeemError) {
       setError(redeemError instanceof Error ? redeemError.message : "Could not redeem this code.")
     } finally {
       setBusy(false)
+    }
+  }
+
+  function applyPromo() {
+    if (!promo || promo.discountPercent <= 0) return
+    window.localStorage.setItem("redeemedPromoCode", promo.code)
+    setAppliedCode(promo.code)
+    if (onApply) {
+      onApply(promo)
+    } else {
+      router.push("/pricing#promo-checkout")
     }
   }
 
@@ -92,13 +113,23 @@ export default function PromoCodeBox({
       </form>
       {error && <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p>}
       {promo && (
-        <p role="status" className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-950/30 px-3 py-2.5 text-sm leading-6 text-emerald-100">
-          <strong>{promo.code}</strong> redeemed: {promo.creditsAdded} credits added
-          (balance: {promo.credits}).
-          {promo.discountPercent > 0
-            ? ` ${promo.discountPercent}% checkout discount is ready to use on the pricing page.`
-            : " No checkout discount is attached to this code."}
-        </p>
+        <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-950/30 px-3 py-2.5 text-sm leading-6 text-emerald-100">
+          <p role="status" aria-live="polite">
+            <strong>{promo.code}</strong> redeemed: {promo.creditsAdded} credits added (balance: {promo.credits}).
+            {promo.discountPercent > 0
+              ? ` ${promo.discountPercent}% checkout discount is ready to apply.`
+              : " No checkout discount is attached to this code."}
+          </p>
+          {promo.discountPercent > 0 && (
+            <button
+              type="button"
+              onClick={applyPromo}
+              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg border border-emerald-300/40 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition-colors hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+            >
+              {appliedCode === promo.code ? "Applied — view checkout" : "Apply discount"}
+            </button>
+          )}
+        </div>
       )}
     </section>
   )

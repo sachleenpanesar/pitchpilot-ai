@@ -2,9 +2,9 @@
 
 ## Install
 
-1. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this `chrome-extension` folder.
+1. Download the extension ZIP from `/extension-access` and extract it, or use this `chrome-extension` folder directly. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the extracted folder.
 2. Sign in to the configured backend in the same Chrome profile. The extension attempts to connect automatically when the Side Panel opens; use **Connect account** in the popup or Side Panel to retry. If automatic connection is unavailable, create a 30-day token from **Extension Access** and paste it into Settings. Tokens remain in session storage unless **Remember token on this device** is selected.
-3. Use **Open Full Side Panel** to prepare a session and start the Live Copilot.
+3. Use **Open Full Side Panel** to prepare a session and start the Live Copilot. The website's **Launch Copilot** button checks for the installed extension and opens its side panel; if it is not detected, it opens the installation and token page.
 
 The default backend is `https://pitchpilot-ai-ruddy.vercel.app`. A local development backend can be set to `http://localhost:3000`. Selecting a different backend asks Chrome for access to that origin.
 

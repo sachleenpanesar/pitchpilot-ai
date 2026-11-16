@@ -1,3 +1,4 @@
+import nodemailer from "nodemailer"
 import { Resend } from "resend"
 
 const DEFAULT_FROM = "PitchPilot AI <onboarding@resend.dev>"
@@ -11,24 +12,73 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;")
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const gmailUser = process.env.GMAIL_USER
+  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD
+  let gmailError: string | null = null
+
+  if (gmailUser && gmailAppPassword) {
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: gmailUser, pass: gmailAppPassword },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
+      })
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || gmailUser,
+        to,
+        subject,
+        html,
+      })
+      return
+    } catch (error) {
+      gmailError = getErrorMessage(error)
+    }
+  }
+
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    console.info(`[email fallback] Email skipped; To: ${to}; Subject: ${subject}`)
-    return
+  if (apiKey) {
+    if (gmailError) {
+      console.warn("Gmail SMTP delivery failed; attempting Resend fallback.", {
+        error: gmailError,
+      })
+    }
+
+    try {
+      const resend = new Resend(apiKey)
+      const { error } = await resend.emails.send({
+        from: process.env.EMAIL_FROM || DEFAULT_FROM,
+        to,
+        subject,
+        html,
+      })
+
+      if (error) {
+        throw new Error(error.message || "Email provider rejected the message")
+      }
+      return
+    } catch (error) {
+      const resendError = getErrorMessage(error)
+      if (gmailError) {
+        throw new Error(`Email delivery failed via Gmail SMTP and Resend. Gmail: ${gmailError}; Resend: ${resendError}`)
+      }
+      throw new Error(`Email delivery failed via Resend: ${resendError}`)
+    }
   }
 
-  const resend = new Resend(apiKey)
-  const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || DEFAULT_FROM,
-    to,
-    subject,
-    html,
-  })
-
-  if (error) {
-    throw new Error(error.message || "Email provider rejected the message")
+  if (gmailError) {
+    throw new Error(`Email delivery failed via Gmail SMTP: ${gmailError}`)
   }
+  if (gmailUser || gmailAppPassword) {
+    throw new Error("Gmail SMTP is incomplete; configure both GMAIL_USER and GMAIL_APP_PASSWORD.")
+  }
+  throw new Error("No email provider is configured; set Gmail SMTP credentials or RESEND_API_KEY.")
 }
 
 export async function sendWelcomeEmail(to: string, name: string): Promise<void> {

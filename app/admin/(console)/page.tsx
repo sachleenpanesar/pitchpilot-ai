@@ -23,5 +23,5 @@ export default async function AdminPage() {
     prisma.user.count({ where: { role: { not: "ADMIN" }, plan: "PRO" } }),
   ])
 
-  return <AdminDashboard initialUsers={users} initialSettings={settings ?? defaultSettings} totalUsers={totalUsers} proUsers={proUsers} />
+  return <AdminDashboard section="overview" initialUsers={users} initialSettings={settings ?? defaultSettings} totalUsers={totalUsers} proUsers={proUsers} />
 }

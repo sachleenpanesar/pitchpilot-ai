@@ -8,7 +8,7 @@
 }
 
 * { box-sizing: border-box; }
-body { width: 340px; margin: 0; background: #f8fafc; }
+body { width: 360px; margin: 0; background: #f8fafc; }
 button, input { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible {
@@ -16,6 +16,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   outline-offset: 2px;
 }
 .popup { padding: 18px; }
+.popup-panel { animation: panel-in .16s ease-out; }
+@keyframes panel-in { from { opacity: .7; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 .brand { display: flex; align-items: center; gap: 11px; }
 .brand-mark {
   display: grid;
@@ -101,6 +103,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .quick-links { display: flex; justify-content: space-between; margin: 14px 2px 0; }
 .quick-links a, .quick-link-button { padding: 0; border: 0; color: #475569; background: transparent; font-size: 10px; font-weight: 700; text-decoration: none; cursor: pointer; }
 .quick-link-button:disabled { opacity: .6; cursor: wait; }
+.panel-hint { margin: 13px 2px 0; padding-left: 10px; border-left: 2px solid #6ee7b7; color: #64748b; font-size: 10px; line-height: 1.5; }
 .settings-panel {
   margin-top: 14px;
   padding: 13px;
@@ -132,3 +135,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .save-button { width: 100%; min-height: 34px; margin-top: 10px; border: 0; border-radius: 9px; color: white; background: #0f172a; font-size: 10px; font-weight: 800; cursor: pointer; }
 .save-button:disabled { opacity: .6; cursor: wait; }
 .footer { margin: 14px 2px 0; color: #94a3b8; font-size: 9px; line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

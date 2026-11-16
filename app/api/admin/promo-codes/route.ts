@@ -3,6 +3,22 @@ import { NextResponse } from "next/server"
 import { getAdminUser } from "@/lib/admin-auth"
 import { prisma } from "@/lib/prisma"
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/i
+
+function isValidIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !ISO_DATE_PATTERN.test(value) || !Number.isFinite(Date.parse(value))) {
+    return false
+  }
+
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number)
+  const calendarDate = new Date(0)
+  calendarDate.setUTCHours(0, 0, 0, 0)
+  calendarDate.setUTCFullYear(year, month - 1, day)
+  return calendarDate.getUTCFullYear() === year
+    && calendarDate.getUTCMonth() === month - 1
+    && calendarDate.getUTCDate() === day
+}
+
 function validatePromoInput(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return "Send a valid JSON request."
   const body = value as Record<string, unknown>
@@ -23,13 +39,24 @@ function validatePromoInput(value: unknown) {
   if (body.maxUses !== undefined && body.maxUses !== null && (!Number.isSafeInteger(body.maxUses) || (body.maxUses as number) < 1 || (body.maxUses as number) > 10_000_000)) {
     return "Maximum uses must be null or a whole number from 1 to 10,000,000."
   }
-  if (body.expiresAt !== undefined && body.expiresAt !== null && (typeof body.expiresAt !== "string" || !Number.isFinite(Date.parse(body.expiresAt)))) {
+  if (body.expiresAt !== undefined && body.expiresAt !== null && !isValidIsoDate(body.expiresAt)) {
     return "Expiry must be a valid ISO date or null."
   }
   if (body.isActive !== undefined && typeof body.isActive !== "boolean") {
     return "isActive must be a boolean."
   }
   return null
+}
+
+function normalizeOptionalEmptyValues(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value
+
+  const body = value as Record<string, unknown>
+  return {
+    ...body,
+    maxUses: typeof body.maxUses === "string" && body.maxUses.trim() === "" ? null : body.maxUses,
+    expiresAt: typeof body.expiresAt === "string" && body.expiresAt.trim() === "" ? null : body.expiresAt,
+  }
 }
 
 export async function GET() {
@@ -60,9 +87,15 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Send a valid JSON request." }, { status: 400 })
   }
-  const validationError = validatePromoInput(body)
+  const values = normalizeOptionalEmptyValues(body) as Record<string, unknown>
+  const validationError = validatePromoInput(values)
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 })
-  const values = body as Record<string, unknown>
+
+  const expiresAt = values.expiresAt == null ? null : new Date(values.expiresAt as string)
+  if (expiresAt && !Number.isFinite(expiresAt.getTime())) {
+    return NextResponse.json({ error: "Expiry must be a valid ISO date or null." }, { status: 400 })
+  }
+
   try {
     const promoCode = await prisma.promoCode.create({
       data: {
@@ -70,7 +103,7 @@ export async function POST(request: Request) {
         bonusCredits: (values.bonusCredits as number | undefined) ?? 0,
         discountPercent: (values.discountPercent as number | undefined) ?? 0,
         maxUses: (values.maxUses as number | null | undefined) ?? null,
-        expiresAt: values.expiresAt ? new Date(values.expiresAt as string) : null,
+        expiresAt,
         isActive: (values.isActive as boolean | undefined) ?? true,
       },
     })

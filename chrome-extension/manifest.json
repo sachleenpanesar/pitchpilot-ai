@@ -9,7 +9,7 @@
     "https://pitchpilot-ai-ruddy.vercel.app/*",
     "http://localhost/*"
   ],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "optional_host_permissions": ["https://*/*"],
   "background": {
     "service_worker": "background.js"
   },
@@ -17,6 +17,16 @@
     "default_title": "Open PitchPilot",
     "default_popup": "popup.html"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://pitchpilot-ai-ruddy.vercel.app/*",
+        "http://localhost/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   }

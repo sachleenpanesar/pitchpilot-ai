@@ -14,6 +14,10 @@ const elements = {
   connectAccount: document.getElementById("connect-account"),
   settingsMessage: document.getElementById("settings-message"),
   extensionAccessLink: document.getElementById("extension-access-link"),
+  supportLink: document.getElementById("support-link"),
+  upgradeLink: document.getElementById("upgrade-link"),
+  creditBadge: document.getElementById("credit-badge"),
+  signedUser: document.getElementById("signed-user"),
   status: document.getElementById("status"),
   statusTitle: document.getElementById("status-title"),
   statusDetail: document.getElementById("status-detail"),
@@ -86,13 +90,26 @@ function showSettingsMessage(message, kind = "") {
   elements.settingsMessage.dataset.kind = kind;
 }
 
-function updateStep(step) {
+function updateStep(step, moveFocus = false) {
   const isContext = step === "context";
   elements.contextStep.hidden = !isContext;
   elements.preferencesStep.hidden = isContext;
   elements.contextIndicator.classList.toggle("active", isContext);
   elements.preferencesIndicator.classList.toggle("active", !isContext);
   elements.preferencesIndicator.classList.toggle("complete", isContext && state.sessionType);
+  if (isContext) {
+    elements.contextIndicator.setAttribute("aria-current", "step");
+    elements.preferencesIndicator.removeAttribute("aria-current");
+  } else {
+    elements.contextIndicator.removeAttribute("aria-current");
+    elements.preferencesIndicator.setAttribute("aria-current", "step");
+  }
+  if (moveFocus) {
+    const heading = isContext
+      ? document.getElementById("context-heading")
+      : document.getElementById("preferences-heading");
+    heading?.focus();
+  }
 }
 
 function selectSessionType(type) {
@@ -135,6 +152,8 @@ function populateSelect(select, documents, emptyLabel, multiple = false) {
 
 async function loadDocuments() {
   if (!state.settings?.apiToken) {
+    elements.creditBadge.textContent = "Connect account";
+    elements.signedUser.textContent = "Not connected";
     elements.documentsStatus.textContent = "Add an extension token in Settings to load saved documents.";
     return;
   }
@@ -143,6 +162,12 @@ async function loadDocuments() {
   try {
     const result = await PitchPilotExtension.requestJson("/api/extension/context", state.settings);
     state.documents = Array.isArray(result.documents) ? result.documents : [];
+    const credits = Number(result.user?.credits);
+    elements.creditBadge.textContent = Number.isFinite(credits)
+      ? `${credits.toLocaleString()} credits`
+      : `${result.user?.plan || "Connected"}`;
+    elements.signedUser.textContent = result.user?.name || result.user?.email || "Account connected";
+    elements.signedUser.title = result.user?.email || "";
     populateSelect(
       elements.resumeSelect,
       state.documents.filter((item) => item.docType === "RESUME"),
@@ -159,6 +184,8 @@ async function loadDocuments() {
       : "No saved documents yet. You can continue without them.";
   } catch (error) {
     elements.documentsStatus.textContent = error instanceof Error ? error.message : "Could not load saved documents.";
+    elements.creditBadge.textContent = "Account unavailable";
+    elements.signedUser.textContent = "Check connection";
   }
 }
 
@@ -213,7 +240,7 @@ async function readBriefFile() {
 
 function beginPreferences() {
   state.jobDescription = elements.jobDescription.value.trim();
-  updateStep("preferences");
+  updateStep("preferences", true);
 }
 
 function getSelectedDocumentIds() {
@@ -622,6 +649,8 @@ async function clearToken() {
     state.settings = await PitchPilotExtension.loadSettings();
     elements.apiToken.value = "";
     elements.rememberToken.checked = false;
+    elements.creditBadge.textContent = "Connect account";
+    elements.signedUser.textContent = "Not connected";
     showSettingsMessage("Extension token cleared.", "success");
     elements.documentsStatus.textContent = "Add an extension token in Settings to load saved documents.";
   } catch {
@@ -671,6 +700,8 @@ async function initialize() {
     elements.answerStyle.value = state.settings.answerStyle;
     selectSessionType(state.settings.sessionType);
     elements.extensionAccessLink.href = `${state.settings.apiOrigin}/extension-access`;
+    elements.supportLink.href = `${state.settings.apiOrigin}/dashboard`;
+    elements.upgradeLink.href = `${state.settings.apiOrigin}/pricing`;
     if (!state.settings.apiToken) {
       try {
         state.settings = await PitchPilotExtension.connectAccount(state.settings);
@@ -703,16 +734,26 @@ elements.extensionAccessLink.addEventListener("click", (event) => {
   event.preventDefault();
   void PitchPilotExtension.openAppPage("/extension-access");
 });
+elements.supportLink.addEventListener("click", (event) => {
+  event.preventDefault();
+  void PitchPilotExtension.openAppPage("/dashboard");
+});
+elements.upgradeLink.addEventListener("click", (event) => {
+  event.preventDefault();
+  void PitchPilotExtension.openAppPage("/pricing");
+});
 elements.saveSettings.addEventListener("click", () => void saveConnectionSettings());
 elements.clearToken.addEventListener("click", () => void clearToken());
 elements.connectAccount.addEventListener("click", () => void connectAccount());
+elements.contextIndicator.addEventListener("click", () => updateStep("context", true));
+elements.preferencesIndicator.addEventListener("click", () => updateStep("preferences", true));
 elements.sessionTypeButtons.forEach((button) => {
   button.addEventListener("click", () => selectSessionType(button.dataset.sessionType));
 });
 elements.importTab.addEventListener("click", () => void importCurrentTab());
 elements.briefFile.addEventListener("change", () => void readBriefFile());
 elements.nextStep.addEventListener("click", beginPreferences);
-elements.backToContext.addEventListener("click", () => updateStep("context"));
+elements.backToContext.addEventListener("click", () => updateStep("context", true));
 elements.startSession.addEventListener("click", () => void startSession());
 elements.listenButton.addEventListener("click", () => {
   if (state.listening) stopListening();

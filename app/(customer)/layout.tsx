@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Coins, FileText, LayoutDashboard, LogOut, Shield, Sparkles } from "lucide-react";
+import { Coins, FileText, LayoutDashboard, LogOut, Shield, Sparkles, Puzzle } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import CustomerSupportChat from "@/components/customer-support-chat";
@@ -35,6 +35,14 @@ export default async function CustomerLayout({
               <Shield className="w-3.5 h-3.5 text-indigo-400" />
               <span>Meeting &amp; Practice Copilot Active</span>
             </div>
+
+            <Link
+              href="/extension-access"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-indigo-300 transition-colors hover:bg-indigo-400/10 hover:text-indigo-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+            >
+              <Puzzle className="h-4 w-4" aria-hidden="true" />
+              Install Chrome Add-in
+            </Link>
 
             {user ? (
               <nav aria-label="Customer navigation" className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-4">
