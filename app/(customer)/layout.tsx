@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Coins, FileText, LayoutDashboard, LogOut, Shield, Sparkles } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import CustomerSupportChat from "@/components/customer-support-chat";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,8 @@ export default async function CustomerLayout({
       </header>
 
       <main className="flex-1 flex flex-col">{children}</main>
+
+      <CustomerSupportChat enabled={Boolean(user && user.role !== "ADMIN")} />
 
       <footer className="border-t border-zinc-800 bg-zinc-950 py-8 text-center text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">

@@ -3,10 +3,17 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { signToken } from "@/lib/auth"
 import { cookies } from "next/headers"
+import { sendWelcomeEmail } from "@/lib/email"
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "A valid JSON request body is required" }, { status: 400 })
+    }
+    const name = typeof body.name === "string" ? body.name : "PitchPilot User"
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+    const password = typeof body.password === "string" ? body.password : ""
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
@@ -32,6 +39,17 @@ export async function POST(req: Request) {
       }
     })
 
+    let emailDeliveryFailed = false
+    try {
+      await sendWelcomeEmail(user.email, user.name || "PitchPilot User")
+    } catch (error: unknown) {
+      emailDeliveryFailed = true
+      console.error("Welcome email delivery failed", {
+        userId: user.id,
+        error: error instanceof Error ? error.message : "Unknown email provider error",
+      })
+    }
+
     const token = signToken({
       userId: user.id,
       email: user.email,
@@ -47,11 +65,15 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 7 // 7 days
     })
 
-    return NextResponse.json({ success: true, user: { id: user.id, email: user.email, name: user.name, credits: user.credits, plan: user.plan } })
+    return NextResponse.json({
+      success: true,
+      user: { id: user.id, email: user.email, name: user.name, credits: user.credits, plan: user.plan },
+      ...(emailDeliveryFailed
+        ? { emailDelivery: { status: "failed", message: "Your account was created, but the welcome email could not be delivered." } }
+        : {}),
+    })
   } catch (error: unknown) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Registration failed" },
-      { status: 500 },
-    )
+    console.error("Registration request failed", error)
+    return NextResponse.json({ error: "Registration failed. Please try again later." }, { status: 500 })
   }
 }

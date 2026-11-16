@@ -12,6 +12,8 @@ model User {
   name            String?
   email           String           @unique
   passwordHash    String
+  otpCode         String?
+  otpExpiresAt    DateTime?
   role            String           @default("USER") // ADMIN, USER
   credits         Int              @default(50)
   plan            String           @default("FREE") // FREE, PRO, UNLIMITED
@@ -20,6 +22,34 @@ model User {
   documents       Document[]
   sessions        Session[]
   paymentRequests PaymentRequest[]
+  supportTickets SupportTicket[]
+}
+
+model SupportTicket {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  status    String           @default("OPEN") // OPEN, RESOLVED
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  messages  SupportMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([status, updatedAt])
+}
+
+model SupportMessage {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderRole String // USER, ADMIN
+  message    String
+  isRead     Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([ticketId, senderRole, isRead])
 }
 
 model Document {

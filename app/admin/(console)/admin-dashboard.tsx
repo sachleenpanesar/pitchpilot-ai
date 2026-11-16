@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Check, CircleCheck, CircleX, ClipboardCheck, Crown, Gift, LoaderCircle, RefreshCw, Save, Settings2, Users } from "lucide-react"
 import Link from "next/link"
+import SupportInbox from "./support-inbox"
 
 type User = {
   id: string
@@ -291,6 +292,8 @@ export default function AdminDashboard({
           </div>
         )}
       </section>
+
+      <SupportInbox />
     </div>
   )
 }
