@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>PitchPilot Sidekick</title>
+    <link rel="stylesheet" href="sidepanel.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true">P</div>
+        <div>
+          <p class="eyebrow">CHROME SIDEKICK</p>
+          <h1>PitchPilot</h1>
+          <p class="tagline">A focused interview companion</p>
+        </div>
+      </header>
+
+      <div id="status" class="status" role="status" aria-live="polite" data-state="idle">
+        <span class="status-dot" aria-hidden="true"></span>
+        <div class="status-copy">
+          <strong id="status-title">Ready when you are</strong>
+          <span id="status-detail">Connect your API, then ask or listen.</span>
+        </div>
+      </div>
+
+      <section class="panel" aria-labelledby="quick-actions-heading">
+        <h2 id="quick-actions-heading" class="section-title">Quick actions</h2>
+        <div class="actions">
+          <button id="listen-button" class="button button-primary" type="button">Start listening</button>
+          <button id="solve-button" class="button button-secondary" type="button">Solve current tab</button>
+        </div>
+        <label class="auto-row" for="auto-answer">
+          <span>
+            <strong>Auto-Answer</strong>
+            <span class="hint">Send speech after 1.5 seconds of silence.</span>
+          </span>
+          <input id="auto-answer" type="checkbox">
+        </label>
+      </section>
+
+      <section class="panel" aria-labelledby="question-heading">
+        <h2 id="question-heading" class="section-title">Ask a question</h2>
+        <label class="field" for="question">Question or prompt
+          <textarea id="question" rows="4" maxlength="12000" placeholder="Type a question, or start listening to dictate…"></textarea>
+        </label>
+        <button id="ask-button" class="button button-primary button-wide" type="button">Answer question</button>
+      </section>
+
+      <details class="panel settings" open>
+        <summary class="section-title">Connection settings</summary>
+        <label class="field" for="api-url">Backend URL
+          <input id="api-url" type="url" autocomplete="url" spellcheck="false" placeholder="http://localhost:3000/api/copilot/answer">
+        </label>
+        <p class="hint">This unpacked build is granted access only to <code>http://localhost:3000</code>.</p>
+        <label class="field" for="session-id">Session ID <span class="optional">(optional)</span>
+          <input id="session-id" type="text" autocomplete="off" spellcheck="false" maxlength="128" placeholder="Paste an owned PitchPilot session ID">
+        </label>
+        <p class="hint">Adds that session’s title, role, mode, language, and recent transcript to the answer context. The server verifies ownership.</p>
+        <label class="field" for="api-token">One-hour bearer token
+          <input id="api-token" type="password" autocomplete="off" spellcheck="false" placeholder="Create one at /extension-access">
+        </label>
+        <label class="remember" for="remember-token">
+          <input id="remember-token" type="checkbox">
+          <span>Remember this token in this Chrome profile (local extension storage is not encrypted).</span>
+        </label>
+        <p class="privacy">The extension sends your question or visible-tab screenshot only to the configured backend. Speech recognition is provided by Chrome’s Web Speech service.</p>
+        <div class="settings-actions">
+          <button id="save-settings" class="button button-secondary" type="button">Save settings</button>
+          <button id="clear-token" class="button button-quiet" type="button">Clear token</button>
+        </div>
+        <p id="message" class="message" role="status" aria-live="polite"></p>
+      </details>
+
+      <section id="results" class="results" aria-label="Copilot answers" aria-live="polite"></section>
+      <p class="footer">Use only where permitted. Always verify suggested answers and code.</p>
+    </main>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

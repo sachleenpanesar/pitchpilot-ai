@@ -1,0 +1,79 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String           @id @default(cuid())
+  name            String?
+  email           String           @unique
+  passwordHash    String
+  role            String           @default("USER") // ADMIN, USER
+  credits         Int              @default(50)
+  plan            String           @default("FREE") // FREE, PRO, UNLIMITED
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  documents       Document[]
+  sessions        Session[]
+  paymentRequests PaymentRequest[]
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  docType   String // RESUME, STAR_STORY, PLAYBOOK, JOB_DESC
+  content   String // Text or JSON content
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  companyOrClient String   @default("General")
+  mode            String // MOCK_INTERVIEW, LIVE_COPILOT
+  language        String   @default("English")
+  status          String   @default("PLANNED") // PLANNED, ACTIVE, COMPLETED
+  durationSeconds Int      @default(0)
+  transcript      String? // JSON or text
+  aiNotes         String?
+  scorecard       String? // JSON
+  followUpEmail   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SiteSetting {
+  id              String   @id @default(cuid())
+  heroTitle       String   @default("PitchPilot AI - Stealth Interview Copilot")
+  heroSubtitle    String   @default("Ace interviews and pitch calls with real-time AI prompts completely undetectable on screen share.")
+  starterCredits  Int      @default(50)
+  weeklyPriceInr  Int      @default(499)
+  monthlyPriceInr Int      @default(1499)
+  upiId           String   @default("")
+  upiPayeeName    String   @default("")
+  updatedAt       DateTime @updatedAt
+}
+
+model PaymentRequest {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  planOrPack String
+  amountInr  Int
+  utrNumber  String   @unique
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
