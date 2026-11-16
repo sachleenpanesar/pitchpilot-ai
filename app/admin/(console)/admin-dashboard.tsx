@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { ArrowLeft, Check, CircleCheck, CircleX, ClipboardCheck, Crown, Gift, LoaderCircle, RefreshCw, Save, Settings2, Users } from "lucide-react"
+import { ArrowLeft, Check, CircleCheck, CircleX, ClipboardCheck, Crown, Gift, LoaderCircle, RefreshCw, Save, Settings2, TicketPercent, Trash2, Users } from "lucide-react"
 import Link from "next/link"
 import SupportInbox from "./support-inbox"
 
@@ -11,7 +11,29 @@ type User = {
   email: string
   plan: string
   credits: number
+  proExpiresAt: string | Date | null
   createdAt: string | Date
+}
+
+type PromoCode = {
+  id: string
+  code: string
+  bonusCredits: number
+  discountPercent: number
+  maxUses: number | null
+  expiresAt: string | null
+  isActive: boolean
+  uses?: number
+  usedCount?: number
+}
+
+type PromoForm = {
+  code: string
+  bonusCredits: string
+  discountPercent: string
+  maxUses: string
+  expiresAt: string
+  isActive: boolean
 }
 
 type Settings = {
@@ -58,6 +80,19 @@ export default function AdminDashboard({
   const [paymentMessage, setPaymentMessage] = useState("")
   const [busyPaymentId, setBusyPaymentId] = useState("")
   const paymentBusyRef = useRef(false)
+  const [activeTab, setActiveTab] = useState<"members" | "promos">("members")
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
+  const [promoLoading, setPromoLoading] = useState(true)
+  const [promoBusy, setPromoBusy] = useState(false)
+  const [promoError, setPromoError] = useState("")
+  const [promoMessage, setPromoMessage] = useState("")
+  const [busyPromoId, setBusyPromoId] = useState("")
+  const [promoForm, setPromoForm] = useState<PromoForm>({
+    code: "", bonusCredits: "0", discountPercent: "0", maxUses: "", expiresAt: "", isActive: true,
+  })
+  const [summary, setSummary] = useState<{ approvedRevenueInr: number; aiCreditsUsed: number } | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [summaryError, setSummaryError] = useState("")
 
   async function getPendingPayments(signal?: AbortSignal): Promise<PendingPayment[]> {
     const response = await fetch("/api/admin/upi-payments", { cache: "no-store", signal })
@@ -81,25 +116,124 @@ export default function AdminDashboard({
     return () => controller.abort()
   }, [])
 
-  async function updateUser(id: string, patch: { plan?: string; bonusCredits?: number }) {
+  async function loadPromoCodes(signal?: AbortSignal) {
+    const response = await fetch("/api/admin/promo-codes", { cache: "no-store", signal })
+    const data: { error?: string; promoCodes?: PromoCode[]; codes?: PromoCode[] } = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || `Could not load promo codes (HTTP ${response.status}).`)
+    return Array.isArray(data.promoCodes) ? data.promoCodes : Array.isArray(data.codes) ? data.codes : []
+  }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadPromoCodes(controller.signal)
+      .then(setPromoCodes)
+      .catch((loadError: unknown) => {
+        if (!controller.signal.aborted) setPromoError(loadError instanceof Error ? loadError.message : "Could not load promo codes.")
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPromoLoading(false)
+      })
+    fetch("/api/admin/summary", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const data: { error?: string; approvedRevenueInr?: number; aiCreditsUsed?: number } = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || `Could not load revenue summary (HTTP ${response.status}).`)
+        setSummary({
+          approvedRevenueInr: Number(data.approvedRevenueInr) || 0,
+          aiCreditsUsed: Number(data.aiCreditsUsed) || 0,
+        })
+      })
+      .catch((loadError: unknown) => {
+        if (!controller.signal.aborted) setSummaryError(loadError instanceof Error ? loadError.message : "Could not load revenue summary.")
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSummaryLoading(false)
+      })
+    return () => controller.abort()
+  }, [])
+
+  async function refreshUsers() {
+    const response = await fetch("/api/admin/users", { cache: "no-store" })
+    const data: { error?: string; users?: User[] } = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || `Could not refresh members (HTTP ${response.status}).`)
+    if (Array.isArray(data.users)) setUsers(data.users)
+  }
+
+  async function updateUser(id: string, patch: { plan?: string; bonusCredits?: number; extendProDays?: 7 | 30 }) {
     setBusy(id)
     setError("")
     setMessage("")
     try {
-      const response = await fetch(`/api/admin/users/${id}`, {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       })
-      const data = await response.json()
+      const data: { error?: string; user?: User } = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || "Could not update user.")
-      setUsers((current) => current.map((user) => user.id === id ? data.user : user))
+      if (patch.extendProDays !== undefined) {
+        await refreshUsers()
+      } else if (data.user) {
+        setUsers((current) => current.map((user) => user.id === id ? data.user! : user))
+      }
       if (patch.bonusCredits !== undefined) setBonus((current) => ({ ...current, [id]: "" }))
-      setMessage(patch.bonusCredits !== undefined ? "Bonus credits granted." : "Plan updated.")
+      setMessage(patch.bonusCredits !== undefined
+        ? "Bonus credits granted."
+        : patch.extendProDays !== undefined
+          ? `Pro extended by ${patch.extendProDays} days. Member list refreshed.`
+          : "Plan updated.")
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Could not update user.")
     } finally {
       setBusy("")
+    }
+  }
+
+  async function createPromoCode(event: React.FormEvent<HTMLFormElement>) {
+      event.preventDefault()
+      setPromoBusy(true)
+      setPromoError("")
+      setPromoMessage("")
+      try {
+        const response = await fetch("/api/admin/promo-codes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: promoForm.code.trim(),
+            bonusCredits: Number(promoForm.bonusCredits),
+            discountPercent: Number(promoForm.discountPercent),
+            maxUses: promoForm.maxUses ? Number(promoForm.maxUses) : null,
+            expiresAt: promoForm.expiresAt ? new Date(promoForm.expiresAt).toISOString() : null,
+            isActive: promoForm.isActive,
+          }),
+        })
+        const data: { error?: string; promoCode?: PromoCode; code?: PromoCode } = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || `Could not create promo code (HTTP ${response.status}).`)
+        const created = data.promoCode || data.code
+        setPromoCodes((current) => created ? [created, ...current] : current)
+        if (!created) setPromoCodes(await loadPromoCodes())
+        setPromoForm({ code: "", bonusCredits: "0", discountPercent: "0", maxUses: "", expiresAt: "", isActive: true })
+        setPromoMessage("Promo code created.")
+      } catch (createError) {
+        setPromoError(createError instanceof Error ? createError.message : "Could not create promo code.")
+      } finally {
+        setPromoBusy(false)
+      }
+  }
+
+  async function deletePromoCode(id: string) {
+      setBusyPromoId(id)
+      setPromoError("")
+      setPromoMessage("")
+      try {
+        const response = await fetch(`/api/admin/promo-codes/${encodeURIComponent(id)}`, { method: "DELETE" })
+        const data: { error?: string } = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || `Could not delete promo code (HTTP ${response.status}).`)
+        setPromoCodes((current) => current.filter((promo) => promo.id !== id))
+        setPromoMessage("Promo code deleted.")
+      } catch (deleteError) {
+        setPromoError(deleteError instanceof Error ? deleteError.message : "Could not delete promo code.")
+      } finally {
+        setBusyPromoId("")
     }
   }
 
@@ -188,17 +322,39 @@ export default function AdminDashboard({
 
       {(message || error) && <p role={error ? "alert" : "status"} className={`mb-5 rounded-xl border px-4 py-3 text-sm ${error ? "border-red-500/30 bg-red-950/30 text-red-200" : "border-emerald-500/30 bg-emerald-950/30 text-emerald-200"}`}>{error || message}</p>}
 
+      <section aria-labelledby="revenue-usage-heading" className="mb-6 rounded-3xl border border-emerald-400/20 bg-gradient-to-r from-emerald-950/30 to-zinc-900/80 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="revenue-usage-heading" className="font-semibold text-white">Revenue &amp; Usage</h2>
+            <p className="mt-1 text-xs text-zinc-400">Approved payment revenue and recorded AI credit usage.</p>
+          </div>
+          {summaryLoading ? <p role="status" className="text-sm text-zinc-400">Loading summary…</p> : summaryError ? (
+            <p role="alert" className="text-sm text-rose-300">{summaryError}</p>
+          ) : summary && (
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-6">
+              <div><p className="text-xs uppercase tracking-wider text-zinc-500">Approved revenue</p><p className="mt-1 text-2xl font-semibold text-emerald-200">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(summary.approvedRevenueInr)}</p></div>
+              <div><p className="text-xs uppercase tracking-wider text-zinc-500">AI credits used</p><p className="mt-1 text-2xl font-semibold text-white">{new Intl.NumberFormat("en-IN").format(summary.aiCreditsUsed)}</p></div>
+            </div>
+          )}
+        </div>
+      </section>
+
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Members</p><p className="mt-2 text-3xl font-semibold text-white">{totalUsers}</p></div>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Pro plans</p><p className="mt-2 text-3xl font-semibold text-indigo-300">{proUsers}</p></div>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Free plans</p><p className="mt-2 text-3xl font-semibold text-zinc-200">{totalUsers - proUsers}</p></div>
       </div>
 
+      <div role="tablist" aria-label="Admin member tools" className="mb-4 flex flex-wrap gap-2">
+        <button id="members-tab" type="button" role="tab" aria-selected={activeTab === "members"} aria-controls="members-tabpanel" onClick={() => setActiveTab("members")} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 ${activeTab === "members" ? "bg-indigo-500 text-white" : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"}`}>Members</button>
+        <button id="promo-tab" type="button" role="tab" aria-selected={activeTab === "promos"} aria-controls="promo-tabpanel" onClick={() => setActiveTab("promos")} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 ${activeTab === "promos" ? "bg-indigo-500 text-white" : "border border-zinc-700 text-zinc-300 hover:bg-zinc-800"}`}><span className="inline-flex items-center gap-2"><TicketPercent className="h-4 w-4" aria-hidden="true" /> Promo Codes</span></button>
+      </div>
+
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-        <section id="users-credits" className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70 scroll-mt-6">
+        {activeTab === "members" ? <section id="members-tabpanel" role="tabpanel" aria-labelledby="members-tab" className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70 scroll-mt-6">
           <div className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
             <Users className="h-5 w-5 text-indigo-300" />
-            <div><h2 className="font-semibold text-white">Members</h2><p className="text-xs text-zinc-500">Toggle Free / Pro access or add bonus credits.</p></div>
+            <div><h2 className="font-semibold text-white">Members</h2><p className="text-xs text-zinc-500">Manage plan access, Pro expiry, and bonus credits.</p></div>
           </div>
           {users.length === 0 ? <p className="p-8 text-center text-sm text-zinc-500">No members yet.</p> : (
             <div className="divide-y divide-zinc-800">
@@ -208,6 +364,7 @@ export default function AdminDashboard({
                     <p className="truncate font-medium text-white">{user.name || "New member"}</p>
                     <p className="truncate text-sm text-zinc-400">{user.email}</p>
                     <p className="mt-1 text-xs text-zinc-500">Joined {new Date(user.createdAt).toLocaleDateString()} · <span className="text-indigo-300">{user.credits} credits</span></p>
+                    <p className="mt-1 text-xs text-zinc-400">Pro expiry: <span className="text-zinc-200">{user.proExpiresAt ? new Date(user.proExpiresAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "Not set"}</span></p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="sr-only" htmlFor={`plan-${user.id}`}>Plan for {user.email}</label>
@@ -219,12 +376,51 @@ export default function AdminDashboard({
                     <button type="button" disabled={busy === user.id || !bonus[user.id] || Number(bonus[user.id]) < 1} onClick={() => updateUser(user.id, { bonusCredits: Number(bonus[user.id]) })} className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-40">
                       {busy === user.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />} Grant
                     </button>
+                    <button type="button" disabled={busy === user.id} onClick={() => updateUser(user.id, { extendProDays: 7 })} className="min-h-10 rounded-lg border border-indigo-400/30 px-3 py-2 text-sm text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-50">
+                      {busy === user.id ? <LoaderCircle className="inline h-4 w-4 animate-spin" aria-hidden="true" /> : null} +7 Days (Weekly)
+                    </button>
+                    <button type="button" disabled={busy === user.id} onClick={() => updateUser(user.id, { extendProDays: 30 })} className="min-h-10 rounded-lg border border-indigo-400/30 px-3 py-2 text-sm text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-50">
+                      {busy === user.id ? <LoaderCircle className="inline h-4 w-4 animate-spin" aria-hidden="true" /> : null} +30 Days (Monthly)
+                    </button>
                   </div>
                 </article>
               ))}
             </div>
           )}
-        </section>
+        </section> : <section id="promo-tabpanel" role="tabpanel" aria-labelledby="promo-tab" className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
+          <div className="flex items-center gap-3 border-b border-zinc-800 px-5 py-4">
+            <TicketPercent className="h-5 w-5 text-indigo-300" aria-hidden="true" />
+            <div><h2 className="font-semibold text-white">Promo Codes</h2><p className="text-xs text-zinc-500">Create credit bonuses and checkout discounts.</p></div>
+          </div>
+          <form onSubmit={createPromoCode} className="grid gap-4 border-b border-zinc-800 p-5 sm:grid-cols-2">
+            <div><label htmlFor="promo-code" className="mb-1.5 block text-sm font-medium text-zinc-300">Code</label><input id="promo-code" required maxLength={64} value={promoForm.code} onChange={(event) => setPromoForm({ ...promoForm, code: event.target.value })} autoComplete="off" className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm uppercase text-white focus:border-indigo-400 focus:outline-none" /></div>
+            <div><label htmlFor="promo-credits" className="mb-1.5 block text-sm font-medium text-zinc-300">Bonus credits</label><input id="promo-credits" type="number" min="0" max="1000000" step="1" required value={promoForm.bonusCredits} onChange={(event) => setPromoForm({ ...promoForm, bonusCredits: event.target.value })} className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-indigo-400 focus:outline-none" /></div>
+            <div><label htmlFor="promo-discount" className="mb-1.5 block text-sm font-medium text-zinc-300">Discount percent</label><input id="promo-discount" type="number" min="0" max="100" step="1" required value={promoForm.discountPercent} onChange={(event) => setPromoForm({ ...promoForm, discountPercent: event.target.value })} className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-indigo-400 focus:outline-none" /></div>
+            <div><label htmlFor="promo-max-uses" className="mb-1.5 block text-sm font-medium text-zinc-300">Maximum uses <span className="text-zinc-500">(optional)</span></label><input id="promo-max-uses" type="number" min="1" max="10000000" step="1" value={promoForm.maxUses} onChange={(event) => setPromoForm({ ...promoForm, maxUses: event.target.value })} className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-indigo-400 focus:outline-none" /></div>
+            <div><label htmlFor="promo-expires" className="mb-1.5 block text-sm font-medium text-zinc-300">Expiry <span className="text-zinc-500">(optional)</span></label><input id="promo-expires" type="datetime-local" value={promoForm.expiresAt} onChange={(event) => setPromoForm({ ...promoForm, expiresAt: event.target.value })} className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-indigo-400 focus:outline-none" /></div>
+            <label className="flex min-h-11 items-center gap-2 self-end text-sm text-zinc-300"><input type="checkbox" checked={promoForm.isActive} onChange={(event) => setPromoForm({ ...promoForm, isActive: event.target.checked })} className="h-4 w-4 rounded border-zinc-600 bg-zinc-950 text-indigo-500 focus:ring-indigo-400" /> Active</label>
+            {(promoError || promoMessage) && <p role={promoError ? "alert" : "status"} className={`sm:col-span-2 rounded-xl border px-3 py-2 text-sm ${promoError ? "border-red-500/30 bg-red-950/30 text-red-200" : "border-emerald-500/30 bg-emerald-950/30 text-emerald-200"}`}>{promoError || promoMessage}</p>}
+            <button type="submit" disabled={promoBusy} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2 sm:justify-self-start">
+              {promoBusy && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />} Create promo code
+            </button>
+          </form>
+          {promoLoading ? <p role="status" className="p-8 text-center text-sm text-zinc-400">Loading promo codes…</p> : promoCodes.length === 0 ? <p className="p-8 text-center text-sm text-zinc-500">No promo codes created yet.</p> : (
+            <div className="divide-y divide-zinc-800">
+              {promoCodes.map((promo) => (
+                <article key={promo.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white">{promo.code} <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] ${promo.isActive ? "bg-emerald-400/10 text-emerald-200" : "bg-zinc-700 text-zinc-300"}`}>{promo.isActive ? "Active" : "Inactive"}</span></p>
+                    <p className="mt-1 text-sm text-zinc-400">{promo.bonusCredits} bonus credits · {promo.discountPercent}% discount</p>
+                    <p className="mt-1 text-xs text-zinc-500">Uses {promo.usedCount ?? promo.uses ?? 0}{promo.maxUses ? ` / ${promo.maxUses}` : ""} · Expires {promo.expiresAt ? new Date(promo.expiresAt).toLocaleString() : "Never"}</p>
+                  </div>
+                  <button type="button" onClick={() => void deletePromoCode(promo.id)} disabled={busyPromoId !== ""} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-rose-400/30 px-3 py-2 text-sm text-rose-200 hover:bg-rose-950/40 disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto">
+                    {busyPromoId === promo.id ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Trash2 className="h-4 w-4" aria-hidden="true" />} Delete
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>}
 
         <section id="site-settings" className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6 scroll-mt-6">
           <div className="mb-5 flex items-center gap-3">
@@ -293,7 +489,7 @@ export default function AdminDashboard({
         )}
       </section>
 
-      <SupportInbox />
+      <SupportInbox upiId={settings.upiId} upiPayeeName={settings.upiPayeeName} />
     </div>
   )
 }

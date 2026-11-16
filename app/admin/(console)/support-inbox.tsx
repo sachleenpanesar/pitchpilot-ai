@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react"
 import type { FormEvent } from "react"
-import { LoaderCircle, MessageSquare, RefreshCw, Send } from "lucide-react"
+import QRCode from "qrcode"
+import { LoaderCircle, MessageSquare, QrCode, RefreshCw, Send } from "lucide-react"
+import SupportMessageContent from "@/components/support-message-content"
 
 type SupportMessage = {
   id: string
@@ -28,7 +30,7 @@ function formatTime(value: string) {
   return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
 }
 
-export default function SupportInbox() {
+export default function SupportInbox({ upiId, upiPayeeName }: { upiId: string; upiPayeeName: string }) {
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [selectedId, setSelectedId] = useState("")
   const [loading, setLoading] = useState(true)
@@ -36,6 +38,11 @@ export default function SupportInbox() {
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [reply, setReply] = useState("")
+  const [showUpiComposer, setShowUpiComposer] = useState(false)
+  const [upiAmount, setUpiAmount] = useState("")
+  const [upiUri, setUpiUri] = useState("")
+  const [upiQr, setUpiQr] = useState<{ uri: string; dataUrl: string } | null>(null)
+  const [upiError, setUpiError] = useState("")
 
   const refresh = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
@@ -57,8 +64,18 @@ export default function SupportInbox() {
   }, [])
 
   useEffect(() => {
-    void refresh()
+    const frame = window.requestAnimationFrame(() => void refresh())
+    return () => window.cancelAnimationFrame(frame)
   }, [refresh])
+
+  useEffect(() => {
+    let active = true
+    if (!upiUri) return
+    QRCode.toDataURL(upiUri, { errorCorrectionLevel: "M", margin: 2, width: 220 })
+      .then((dataUrl) => { if (active) setUpiQr({ uri: upiUri, dataUrl }) })
+      .catch(() => { if (active) setUpiError("Could not generate the local QR. The UPI payment link can still be inserted.") })
+    return () => { active = false }
+  }, [upiUri])
 
   const selectedTicket = tickets.find((ticket) => ticket.id === selectedId)
 
@@ -106,6 +123,34 @@ export default function SupportInbox() {
     } finally {
       setBusy(false)
     }
+  }
+
+  function prepareUpiPayment() {
+    const amount = Number(upiAmount)
+    if (!upiId || !upiPayeeName) {
+      setUpiError("Add a UPI ID and payee name in Site settings first.")
+      return
+    }
+    if (!Number.isFinite(amount) || amount <= 0 || !/^\d+(?:\.\d{1,2})?$/.test(upiAmount.trim())) {
+      setUpiError("Enter a positive amount with no more than two decimal places.")
+      return
+    }
+    const uri = `upi://pay?${new URLSearchParams({
+      pa: upiId,
+      pn: upiPayeeName,
+      am: amount.toFixed(2),
+      cu: "INR",
+    }).toString()}`
+    setUpiError("")
+    setUpiUri(uri)
+  }
+
+  function insertUpiPayment() {
+    if (!upiUri) return
+    const line = `UPI payment link: ${upiUri}`
+    setReply((current) => current.trim() ? `${current.trim()}\n\n${line}` : line)
+    setShowUpiComposer(false)
+    setNotice("UPI payment link and locally generated QR added to the reply.")
   }
 
   return (
@@ -169,7 +214,7 @@ export default function SupportInbox() {
                   const isAdmin = item.senderRole.toUpperCase() === "ADMIN"
                   return (
                     <article key={item.id} className={`max-w-[90%] rounded-xl px-3 py-2.5 ${isAdmin ? "ml-auto bg-indigo-500/20 text-indigo-50" : "mr-auto bg-zinc-800 text-zinc-100"}`}>
-                      <p className="whitespace-pre-wrap break-words text-sm leading-6">{item.message}</p>
+                      <SupportMessageContent message={item.message} />
                       <time dateTime={item.createdAt} className="mt-1.5 block text-right text-[11px] text-zinc-400">{isAdmin ? "Support · " : `${selectedTicket.name || "Customer"} · `}{formatTime(item.createdAt)}</time>
                     </article>
                   )
@@ -178,6 +223,36 @@ export default function SupportInbox() {
 
               <form onSubmit={sendReply} className="border-t border-zinc-800 p-4 sm:p-5">
                 <label htmlFor="admin-support-reply" className="mb-2 block text-sm font-medium text-zinc-300">Reply to customer</label>
+                <div className="mb-3">
+                  <button type="button" onClick={() => { setShowUpiComposer((current) => !current); setUpiError(""); setUpiUri("") }} disabled={busy} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200 hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:opacity-50">
+                    <QrCode className="h-4 w-4" aria-hidden="true" /> Insert UPI Payment QR
+                  </button>
+                </div>
+                {showUpiComposer && (
+                  <div className="mb-3 rounded-xl border border-zinc-700 bg-zinc-950/70 p-3">
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                      <div>
+                        <label htmlFor="support-upi-amount" className="mb-1.5 block text-sm font-medium text-zinc-300">Payment amount · INR</label>
+                        <input id="support-upi-amount" type="number" min="0.01" step="0.01" inputMode="decimal" value={upiAmount} onChange={(event) => setUpiAmount(event.target.value)} className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-emerald-400 focus:outline-none" placeholder="e.g. 499" />
+                      </div>
+                      <button type="button" onClick={prepareUpiPayment} className="min-h-10 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-400">Generate local QR</button>
+                    </div>
+                    {upiError && <p role="alert" className="mt-2 text-sm text-rose-300">{upiError}</p>}
+                    {upiUri && (
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {upiQr?.uri === upiUri ? (
+                          // Generated locally; payment details are not sent to an external QR service.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={upiQr.dataUrl} alt={`UPI payment QR for ₹${Number(upiAmount).toFixed(2)}`} className="h-32 w-32 rounded-lg bg-white p-1" />
+                        ) : <p role="status" className="text-sm text-zinc-400">Generating QR locally…</p>}
+                        <div className="min-w-0 flex-1">
+                          <p className="break-all font-mono text-xs text-zinc-400">{upiUri}</p>
+                          <button type="button" onClick={insertUpiPayment} className="mt-2 min-h-10 rounded-lg border border-emerald-400/30 px-3 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-400/10">Insert link + QR in reply</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                   <textarea id="admin-support-reply" required maxLength={5000} rows={3} value={reply} onChange={(event) => setReply(event.target.value)} className="min-h-12 flex-1 resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30" placeholder="Write a reply…" />
                   <button type="submit" disabled={busy || !reply.trim()} className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:cursor-not-allowed disabled:opacity-50">

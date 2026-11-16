@@ -16,7 +16,7 @@ export default async function AdminPage() {
     prisma.user.findMany({
       where: { role: { not: "ADMIN" } },
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, email: true, plan: true, credits: true, createdAt: true },
+      select: { id: true, name: true, email: true, plan: true, credits: true, proExpiresAt: true, createdAt: true },
     }),
     prisma.siteSetting.findFirst(),
     prisma.user.count({ where: { role: { not: "ADMIN" } } }),

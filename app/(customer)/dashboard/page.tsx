@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Video, Shield, FileText, ArrowRight, MessageSquare, CheckCircle, Sparkles, Coins } from "lucide-react"
+import PromoCodeBox from "@/components/promo-code-box"
 
 export default async function DashboardPage() {
   const auth = await getCurrentUser()
@@ -50,6 +51,10 @@ export default async function DashboardPage() {
             </Link>
           </div>
         </div>
+      </div>
+
+      <div className="mb-8">
+        <PromoCodeBox currentCredits={user?.credits ?? 0} />
       </div>
 
       {/* Quick Stats & Navigation */}

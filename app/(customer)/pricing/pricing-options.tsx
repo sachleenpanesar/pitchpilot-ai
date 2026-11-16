@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import QRCode from "qrcode"
 import { CheckCircle2, CreditCard, ExternalLink, LoaderCircle, QrCode, X } from "lucide-react"
+import PromoCodeBox from "@/components/promo-code-box"
+import type { RedeemedPromo } from "@/components/promo-code-box"
 
 type Product = "pro_weekly" | "pro_monthly" | "credits_25" | "credits_100"
 
@@ -14,6 +16,13 @@ type Offer = {
   price: number | null
   description: string
   detail: string
+}
+
+type PromoQuote = {
+  code: string
+  originalAmountInr: number
+  discountPercent: number
+  amountInr: number
 }
 
 const freeFeatures = [
@@ -42,6 +51,7 @@ export default function PricingOptions({
   const previousFocusRef = useRef<HTMLElement | null>(null)
   const busyRef = useRef(false)
   const upiBusyRef = useRef(false)
+  const quoteRequestRef = useRef(0)
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null)
   const [selectedUpiOffer, setSelectedUpiOffer] = useState<Offer | null>(null)
   const [busy, setBusy] = useState(false)
@@ -54,6 +64,11 @@ export default function PricingOptions({
   const [submittedUtr, setSubmittedUtr] = useState("")
   const [qrDataUrl, setQrDataUrl] = useState<{ uri: string; dataUrl: string } | null>(null)
   const [qrError, setQrError] = useState<{ uri: string; message: string } | null>(null)
+  const [checkoutPromoInput, setCheckoutPromoInput] = useState("")
+  const [checkoutPromoCode, setCheckoutPromoCode] = useState("")
+  const [promoQuotes, setPromoQuotes] = useState<Partial<Record<Product, PromoQuote>>>({})
+  const [quotesLoading, setQuotesLoading] = useState(false)
+  const [quoteError, setQuoteError] = useState("")
   const offers: Offer[] = [
     {
       product: "pro_weekly",
@@ -84,6 +99,61 @@ export default function PricingOptions({
       detail: "A larger credit pack for frequent use.",
     },
   ]
+
+  const loadPromoQuotes = useCallback(async (code: string) => {
+    const requestId = ++quoteRequestRef.current
+    setPromoQuotes({})
+    setQuoteError("")
+    setQuotesLoading(Boolean(code))
+    if (!code) return
+    const products: Product[] = ["pro_weekly", "pro_monthly", "credits_25", "credits_100"]
+    try {
+      const entries = await Promise.all(products.map(async (planOrPack) => {
+        const response = await fetch("/api/billing/promo/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, planOrPack }),
+        })
+        const data: {
+          error?: string
+          originalAmountInr?: number
+          discountPercent?: number
+          amountInr?: number
+        } = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || `Could not quote ${planOrPack.replaceAll("_", " ")} (HTTP ${response.status}).`)
+        const quote = {
+          code,
+          originalAmountInr: Number(data.originalAmountInr),
+          discountPercent: Number(data.discountPercent),
+          amountInr: Number(data.amountInr),
+        }
+        if (!Number.isFinite(quote.originalAmountInr) || !Number.isFinite(quote.discountPercent) || !Number.isFinite(quote.amountInr)) {
+          throw new Error(`Billing returned an invalid price quote for ${planOrPack.replaceAll("_", " ")}.`)
+        }
+        return [planOrPack, quote] as const
+      }))
+      if (requestId === quoteRequestRef.current) {
+        setPromoQuotes(Object.fromEntries(entries) as Partial<Record<Product, PromoQuote>>)
+      }
+    } catch (loadError) {
+      if (requestId === quoteRequestRef.current) setQuoteError(loadError instanceof Error ? loadError.message : "Could not get promo price quotes.")
+    } finally {
+      if (requestId === quoteRequestRef.current) setQuotesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const savedCode = window.localStorage.getItem("redeemedPromoCode")
+      if (!savedCode) return
+      setCheckoutPromoInput(savedCode)
+      setCheckoutPromoCode(savedCode)
+      void loadPromoQuotes(savedCode)
+    })
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [loadPromoQuotes])
 
   useEffect(() => {
     if (!selectedOffer && !selectedUpiOffer) return
@@ -124,11 +194,15 @@ export default function PricingOptions({
     }
   }, [selectedOffer, selectedUpiOffer])
 
-  const upiUri = selectedUpiOffer && upiId && upiPayeeName
+  const activeUpiQuote = selectedUpiOffer ? promoQuotes[selectedUpiOffer.product] : undefined
+  const upiAmount = checkoutPromoCode
+    ? activeUpiQuote?.code === checkoutPromoCode ? activeUpiQuote.amountInr : null
+    : selectedUpiOffer?.price ?? null
+  const upiUri = selectedUpiOffer && upiId && upiPayeeName && upiAmount !== null && upiAmount > 0
     ? `upi://pay?${new URLSearchParams({
         pa: upiId,
         pn: upiPayeeName,
-        am: String(selectedUpiOffer.price),
+        am: String(upiAmount),
         cu: "INR",
       }).toString()}`
     : ""
@@ -171,6 +245,34 @@ export default function PricingOptions({
     setSelectedUpiOffer(offer)
   }
 
+  function applyCheckoutPromo(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const code = checkoutPromoInput.trim().toUpperCase()
+    setCheckoutPromoCode(code)
+    setCheckoutPromoInput(code)
+    void loadPromoQuotes(code)
+  }
+
+  function onPromoRedeemed(promo: RedeemedPromo) {
+    if (promo.discountPercent <= 0) {
+      quoteRequestRef.current += 1
+      setCheckoutPromoInput("")
+      setCheckoutPromoCode("")
+      setPromoQuotes({})
+      setQuoteError("")
+      setQuotesLoading(false)
+      return
+    }
+    setCheckoutPromoInput(promo.code)
+    setCheckoutPromoCode(promo.code)
+    void loadPromoQuotes(promo.code)
+  }
+
+  function quotedAmount(offer: Offer) {
+    const quote = promoQuotes[offer.product]
+    return quote?.code === checkoutPromoCode ? quote : null
+  }
+
   async function submitUpiPayment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selectedUpiOffer || upiBusyRef.current) return
@@ -186,7 +288,11 @@ export default function PricingOptions({
       const response = await fetch("/api/billing/upi-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product: selectedUpiOffer.product, utrNumber }),
+        body: JSON.stringify({
+          product: selectedUpiOffer.product,
+          utrNumber,
+          ...(checkoutPromoCode ? { code: checkoutPromoCode } : {}),
+        }),
       })
       const data: {
         error?: string
@@ -234,7 +340,11 @@ export default function PricingOptions({
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product: selectedOffer.product, simulate: true }),
+        body: JSON.stringify({
+          product: selectedOffer.product,
+          simulate: true,
+          ...(checkoutPromoCode ? { code: checkoutPromoCode } : {}),
+        }),
       })
       const data: { error?: string } = await response.json().catch(() => ({}))
 
@@ -275,6 +385,20 @@ export default function PricingOptions({
         )}
       </header>
 
+      <div className="mx-auto mb-8 grid max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+        <PromoCodeBox currentCredits={currentCredits} onRedeemed={onPromoRedeemed} />
+        <form onSubmit={applyCheckoutPromo} className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5">
+          <label htmlFor="checkout-promo-code" className="block font-semibold text-white">Code to apply at checkout</label>
+          <p className="mt-1 text-sm text-slate-400">Use a redeemed code for discounted pricing. Exact quotes come from billing.</p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <input id="checkout-promo-code" value={checkoutPromoInput} onChange={(event) => setCheckoutPromoInput(event.target.value)} maxLength={64} autoComplete="off" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm uppercase text-white placeholder:normal-case placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30" placeholder="Enter or select a redeemed code" />
+            <button type="submit" className="min-h-11 rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">Apply to checkout</button>
+          </div>
+          {checkoutPromoCode && <p className="mt-3 text-xs text-emerald-200">Selected code: <strong>{checkoutPromoCode}</strong>{quotesLoading ? " · Fetching exact prices…" : ""}</p>}
+          {quoteError && <p role="alert" className="mt-2 text-sm text-rose-300">{quoteError}</p>}
+        </form>
+      </div>
+
       <section aria-labelledby="plans-heading" className="mb-12">
         <h2 id="plans-heading" className="sr-only">Free and Pro subscription plans</h2>
         <div className="grid gap-5 md:grid-cols-3">
@@ -306,7 +430,9 @@ export default function PricingOptions({
               {offer.product === "pro_monthly" && <span className="absolute -top-3 left-6 rounded-full bg-emerald-400 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-950">Pro</span>}
               <div>
                 <p className="text-sm font-semibold text-slate-300">{offer.name}</p>
-                <p className="mt-3 text-4xl font-bold text-white">{offer.price === null ? "Unavailable" : <>₹{offer.price}<span className="ml-1 text-sm font-normal text-slate-400">INR</span></>}</p>
+                <p className="mt-3 text-4xl font-bold text-white">{offer.price === null ? "Unavailable" : quotedAmount(offer) ? <><span className="mr-2 text-lg font-medium text-slate-500 line-through">₹{quotedAmount(offer)?.originalAmountInr}</span>₹{quotedAmount(offer)?.amountInr}<span className="ml-1 text-sm font-normal text-slate-400">INR</span></> : <>₹{offer.price}<span className="ml-1 text-sm font-normal text-slate-400">INR</span></>}</p>
+                {quotedAmount(offer) && <p className="mt-1 text-xs text-emerald-300">{quotedAmount(offer)?.discountPercent}% off with {checkoutPromoCode}</p>}
+                {checkoutPromoCode && quotesLoading && <p role="status" className="mt-1 text-xs text-slate-400">Loading quoted price…</p>}
                 <p className="mt-2 text-sm text-slate-300">{offer.description}</p>
                 <p className="mt-3 min-h-10 text-sm leading-6 text-slate-400">{offer.detail}</p>
                 <p className="mt-4 text-xs text-slate-500">Demo checkout only · not a real payment</p>
@@ -337,7 +463,7 @@ export default function PricingOptions({
             <article key={offer.product} className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-700 bg-slate-900/60 p-5 sm:flex-row sm:items-center">
               <div>
                 <h3 className="font-semibold text-white">{offer.name}</h3>
-                <p className="mt-1 text-sm text-slate-400">{offer.description} · {offer.price === null ? "Price unavailable" : `₹${offer.price}`}</p>
+                <p className="mt-1 text-sm text-slate-400">{offer.description} · {quotedAmount(offer) ? <><span className="line-through">₹{quotedAmount(offer)?.originalAmountInr}</span> <strong className="text-emerald-200">₹{quotedAmount(offer)?.amountInr}</strong> ({quotedAmount(offer)?.discountPercent}% off)</> : offer.price === null ? "Price unavailable" : `₹${offer.price}`}</p>
               </div>
               <button type="button" onClick={() => openCheckout(offer)} disabled={offer.price === null} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-50">
                 <CreditCard className="h-4 w-4" aria-hidden="true" /> {offer.price === null ? "Price unavailable" : "Demo checkout"}
@@ -378,7 +504,11 @@ export default function PricingOptions({
                   <p className="font-semibold text-white">{selectedOffer.name}</p>
                   <p className="mt-1 text-sm text-slate-400">{selectedOffer.description}</p>
                 </div>
-                <p className="shrink-0 text-xl font-bold text-white">₹{selectedOffer.price}</p>
+                <div className="shrink-0 text-right">
+                  {quotedAmount(selectedOffer) && <p className="text-xs text-slate-500 line-through">₹{quotedAmount(selectedOffer)?.originalAmountInr}</p>}
+                  <p className="text-xl font-bold text-white">₹{quotedAmount(selectedOffer)?.amountInr ?? selectedOffer.price}</p>
+                  {quotedAmount(selectedOffer) && <p className="text-xs text-emerald-300">{quotedAmount(selectedOffer)?.discountPercent}% off</p>}
+                </div>
               </div>
               <div className="mt-5 border-t border-slate-800 pt-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">UPI / Razorpay-style preview</p>
@@ -395,6 +525,7 @@ export default function PricingOptions({
             <p id="checkout-description" className="mt-4 text-sm leading-6 text-slate-400">
               This test flow sends a simulated checkout request. It does not collect payment details or process a real payment.
             </p>
+            {checkoutPromoCode && <p className="mt-2 text-sm text-emerald-200">Checkout code: {checkoutPromoCode}{quotesLoading ? " · Getting quote…" : ""}</p>}
             {error && (
               <div className="mt-4 rounded-xl border border-rose-400/30 bg-rose-950/30 p-3 text-sm text-rose-200" role="alert">
                 <p>{error}</p>
@@ -412,7 +543,7 @@ export default function PricingOptions({
                 {success ? "Close" : "Cancel"}
               </button>
               {!success && (
-                <button type="button" onClick={simulateCheckout} disabled={busy || process.env.NODE_ENV === "production"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="button" onClick={simulateCheckout} disabled={busy || quotesLoading || Boolean(checkoutPromoCode && !quotedAmount(selectedOffer)) || process.env.NODE_ENV === "production"} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 disabled:cursor-not-allowed disabled:opacity-50">
                   {busy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
                   {process.env.NODE_ENV === "production" ? "Simulation unavailable in production" : busy ? "Running simulation…" : "Simulate Instant Payment"}
                 </button>
@@ -452,9 +583,11 @@ export default function PricingOptions({
             <div className="mt-5 grid gap-5 rounded-2xl border border-slate-700 bg-slate-950/70 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exact amount to pay</p>
-                <p className="mt-1 text-3xl font-bold text-white" aria-label={`${selectedUpiOffer.price} Indian rupees`}>
-                  ₹{selectedUpiOffer.price}<span className="ml-2 text-sm font-medium text-slate-400">INR</span>
+                <p className="mt-1 text-3xl font-bold text-white" aria-label={`${upiAmount ?? selectedUpiOffer.price} Indian rupees`}>
+                  {upiAmount === null ? "Quote pending" : <>₹{upiAmount}<span className="ml-2 text-sm font-medium text-slate-400">INR</span></>}
                 </p>
+                {activeUpiQuote && <p className="mt-1 text-sm text-emerald-300">{activeUpiQuote.discountPercent}% off · original ₹{activeUpiQuote.originalAmountInr}</p>}
+                {checkoutPromoCode && quotesLoading && <p role="status" className="mt-1 text-xs text-slate-400">Fetching exact amount from billing…</p>}
                 <p className="mt-4 text-sm font-medium text-slate-200">{upiPayeeName}</p>
                 <p className="break-all font-mono text-sm text-emerald-200">{upiId}</p>
               </div>
@@ -462,7 +595,7 @@ export default function PricingOptions({
                 {qrDataUrl?.uri === upiUri ? (
                   // Generated in this browser from the UPI URI; no QR service receives payment details.
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={qrDataUrl.dataUrl} alt={`UPI payment QR code for ₹${selectedUpiOffer.price}`} className="h-44 w-44" />
+                  <img src={qrDataUrl.dataUrl} alt={`UPI payment QR code for ₹${upiAmount}`} className="h-44 w-44" />
                 ) : qrError?.uri === upiUri ? (
                   <p className="px-3 text-center text-xs text-rose-700">{qrError.message}</p>
                 ) : (
@@ -476,6 +609,7 @@ export default function PricingOptions({
                 <ExternalLink className="h-4 w-4" aria-hidden="true" /> Pay with Google Pay / UPI App
               </a>
             )}
+            {checkoutPromoCode && !upiUri && (quoteError || !quotesLoading) && <p role={activeUpiQuote?.amountInr === 0 ? "status" : "alert"} className={`mt-3 text-sm ${activeUpiQuote?.amountInr === 0 ? "text-emerald-300" : "text-rose-300"}`}>{activeUpiQuote?.amountInr === 0 ? "This discount makes the selected product free; no UPI payment is needed." : quoteError || "A valid backend price quote is required before generating the payment QR."}</p>}
 
             {upiSuccess ? (
               <div className="mt-5 rounded-xl border border-amber-400/30 bg-amber-950/25 p-4 text-sm text-amber-100" role="status">
@@ -508,7 +642,7 @@ export default function PricingOptions({
                     {upiError.startsWith("Sign in is required") && <Link href="/login" className="mt-2 inline-block font-semibold underline underline-offset-2">Sign in</Link>}
                   </div>
                 )}
-                <button type="submit" disabled={upiBusy || utrNumber.length !== 12} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 px-4 py-3 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="submit" disabled={upiBusy || utrNumber.length !== 12 || quotesLoading || Boolean(checkoutPromoCode && (!activeUpiQuote || activeUpiQuote.amountInr <= 0))} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 px-4 py-3 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 disabled:cursor-not-allowed disabled:opacity-50">
                   {upiBusy ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="h-4 w-4" aria-hidden="true" />}
                   {upiBusy ? "Submitting reference…" : "Submit UTR for review"}
                 </button>

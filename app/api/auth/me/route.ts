@@ -11,7 +11,7 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, name: true, email: true, role: true, credits: true, plan: true },
+      select: { id: true, name: true, email: true, role: true, credits: true, plan: true, proExpiresAt: true },
     })
 
     if (!user) {
@@ -19,7 +19,8 @@ export async function GET() {
     }
 
     return NextResponse.json({ user })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    console.error("Current user lookup failed:", error)
+    return NextResponse.json({ error: "Could not load the current user." }, { status: 500 })
   }
 }

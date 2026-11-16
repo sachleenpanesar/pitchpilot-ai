@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken"
 import { cookies } from "next/headers"
 import { randomBytes } from "node:crypto"
+import { prisma } from "@/lib/prisma"
 
 // Never use a predictable signing key in production. A process-local key keeps
 // local development convenient while invalidating sessions after a restart.
@@ -89,5 +90,18 @@ export async function getCurrentUser(): Promise<AuthPayload | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get("auth_token")?.value
   if (!token) return null
-  return verifyToken(token)
+  const payload = verifyToken(token)
+  if (!payload) return null
+
+  // Keep the persisted account plan current on customer session checks. The
+  // credit reservation path independently checks expiry in its debit predicate.
+  await prisma.user.updateMany({
+    where: {
+      id: payload.userId,
+      plan: "PRO",
+      proExpiresAt: { lte: new Date() },
+    },
+    data: { plan: "FREE" },
+  })
+  return payload
 }

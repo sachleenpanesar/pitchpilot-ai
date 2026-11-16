@@ -8,21 +8,24 @@ generator client {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  name            String?
-  email           String           @unique
-  passwordHash    String
-  otpCode         String?
-  otpExpiresAt    DateTime?
-  role            String           @default("USER") // ADMIN, USER
-  credits         Int              @default(50)
-  plan            String           @default("FREE") // FREE, PRO, UNLIMITED
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  documents       Document[]
-  sessions        Session[]
-  paymentRequests PaymentRequest[]
-  supportTickets SupportTicket[]
+  id               String                @id @default(cuid())
+  name             String?
+  email            String                @unique
+  passwordHash     String
+  otpCode          String?
+  otpExpiresAt     DateTime?
+  role             String                @default("USER") // ADMIN, USER
+  credits          Int                   @default(50)
+  plan             String                @default("FREE") // FREE, PRO, UNLIMITED
+  proExpiresAt     DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  documents        Document[]
+  sessions         Session[]
+  paymentRequests  PaymentRequest[]
+  supportTickets   SupportTicket[]
+  promoRedemptions PromoCodeRedemption[]
+  creditUsage      CreditUsage[]
 }
 
 model SupportTicket {
@@ -94,16 +97,64 @@ model SiteSetting {
 }
 
 model PaymentRequest {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  planOrPack String
-  amountInr  Int
-  utrNumber  String   @unique
-  status     String   @default("PENDING")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                String               @id @default(cuid())
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  planOrPack        String
+  amountInr         Int
+  utrNumber         String?              @unique
+  originalAmountInr Int?
+  discountPercent   Int                  @default(0)
+  promoRedemptionId String?
+  promoRedemption   PromoCodeRedemption? @relation(fields: [promoRedemptionId], references: [id], onDelete: Restrict)
+  status            String               @default("PENDING")
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model PromoCode {
+  id              String                @id @default(cuid())
+  code            String                @unique
+  bonusCredits    Int                   @default(0)
+  discountPercent Int                   @default(0)
+  maxUses         Int?
+  usedCount       Int                   @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  redemptions     PromoCodeRedemption[]
+
+  @@index([isActive, expiresAt])
+}
+
+model PromoCodeRedemption {
+  id              String           @id @default(cuid())
+  promoCodeId     String
+  promoCode       PromoCode        @relation(fields: [promoCodeId], references: [id], onDelete: Restrict)
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discountPercent Int              @default(0)
+  status          String           @default("AVAILABLE") // AVAILABLE, RESERVED, CONSUMED
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  paymentRequests PaymentRequest[]
+
+  @@unique([promoCodeId, userId])
+  @@index([userId, status])
+}
+
+model CreditUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credits   Int // Positive for metered use; negative for a refund.
+  source    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
   @@index([userId, createdAt])
 }

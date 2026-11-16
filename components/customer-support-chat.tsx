@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import type { FormEvent } from "react"
 import { LoaderCircle, MessageCircle, Plus, Send, X } from "lucide-react"
+import SupportMessageContent from "@/components/support-message-content"
 
 type SupportMessage = {
   id: string
@@ -62,9 +63,12 @@ export default function CustomerSupportChat({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!open || !chatAvailable) return
-    void refreshTickets()
+    const frame = window.requestAnimationFrame(() => void refreshTickets())
     const intervalId = window.setInterval(() => void refreshTickets(), 5000)
-    return () => window.clearInterval(intervalId)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearInterval(intervalId)
+    }
   }, [open, chatAvailable, refreshTickets])
 
   if (!chatAvailable) return null
@@ -128,7 +132,6 @@ export default function CustomerSupportChat({ enabled }: { enabled: boolean }) {
         <section
           id="support-chat-panel"
           aria-labelledby="support-chat-title"
-          aria-modal="false"
           className="flex h-[min(620px,calc(100dvh-6rem))] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 text-slate-100 shadow-2xl shadow-black/50"
         >
           <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-3">
@@ -189,7 +192,7 @@ export default function CustomerSupportChat({ enabled }: { enabled: boolean }) {
                     const isCustomer = item.senderRole.toUpperCase() === "CUSTOMER"
                     return (
                       <article key={item.id} className={`max-w-[90%] rounded-xl px-3 py-2.5 ${isCustomer ? "ml-auto bg-indigo-500/20 text-indigo-50" : "mr-auto bg-slate-800 text-slate-100"}`}>
-                        <p className="whitespace-pre-wrap break-words text-sm leading-5">{item.message}</p>
+                        <SupportMessageContent message={item.message} />
                         <time dateTime={item.createdAt} className="mt-1.5 block text-right text-[11px] text-slate-400">{isCustomer ? "You · " : "Support · "}{formatTime(item.createdAt)}</time>
                       </article>
                     )

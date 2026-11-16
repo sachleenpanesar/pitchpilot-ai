@@ -10,6 +10,7 @@ const PRODUCTS = {
 }
 
 const MAX_SQLITE_INT = 2_147_483_647
+const PRODUCT_DURATION_DAYS = { pro_weekly: 7, pro_monthly: 30 }
 
 type ReviewErrorCode =
   | "PAYMENT_NOT_FOUND"
@@ -18,6 +19,7 @@ type ReviewErrorCode =
   | "AMOUNT_MISMATCH"
   | "USER_NOT_FOUND"
   | "CREDIT_BALANCE_LIMIT"
+  | "PROMO_RESERVATION_INVALID"
 
 class ReviewError extends Error {
   constructor(readonly code: ReviewErrorCode, readonly status: number) {
@@ -80,6 +82,9 @@ export async function PATCH(
           userId: true,
           planOrPack: true,
           amountInr: true,
+          originalAmountInr: true,
+          discountPercent: true,
+          promoRedemptionId: true,
           status: true,
           createdAt: true,
         },
@@ -99,12 +104,32 @@ export async function PATCH(
 
         // The amount is the server-computed quote stored at submission time.
         // Re-reading SiteSetting here would invalidate pending requests after a price change.
+        const originalAmountInr = payment.originalAmountInr ?? payment.amountInr
+        const discountPercent = payment.discountPercent ?? 0
+        const expectedAmount = Math.round(originalAmountInr * (100 - discountPercent) / 100)
         if (
           !Number.isSafeInteger(payment.amountInr) ||
           payment.amountInr <= 0 ||
-          (product.kind === "credits" && payment.amountInr !== product.priceInr)
+          !Number.isSafeInteger(originalAmountInr) ||
+          originalAmountInr <= 0 ||
+          !Number.isInteger(discountPercent) ||
+          discountPercent < 0 ||
+          discountPercent > 100 ||
+          expectedAmount !== payment.amountInr ||
+          (!payment.originalAmountInr && product.kind === "credits" && payment.amountInr !== product.priceInr) ||
+          (payment.promoRedemptionId === null && discountPercent !== 0) ||
+          (payment.promoRedemptionId !== null && discountPercent === 0)
         ) {
           throw new ReviewError("AMOUNT_MISMATCH", 409)
+        }
+        if (payment.promoRedemptionId) {
+          const redemption = await transaction.promoCodeRedemption.findUnique({
+            where: { id: payment.promoRedemptionId },
+            select: { status: true, discountPercent: true },
+          })
+          if (!redemption || redemption.status !== "RESERVED" || redemption.discountPercent !== discountPercent) {
+            throw new ReviewError("PROMO_RESERVATION_INVALID", 409)
+          }
         }
 
         const user = await transaction.user.findUnique({
@@ -136,9 +161,19 @@ export async function PATCH(
       if (status === "APPROVED") {
         if (!product) throw new ReviewError("PRODUCT_INVALID", 409)
         if (product.kind === "subscription") {
+          const current = await transaction.user.findUnique({
+            where: { id: payment.userId },
+            select: { proExpiresAt: true },
+          })
+          if (!current) throw new ReviewError("USER_NOT_FOUND", 409)
+          const now = new Date()
+          const base = current.proExpiresAt && current.proExpiresAt > now ? current.proExpiresAt : now
           await transaction.user.update({
             where: { id: payment.userId },
-            data: { plan: "PRO" },
+            data: {
+              plan: "PRO",
+              proExpiresAt: new Date(base.getTime() + PRODUCT_DURATION_DAYS[payment.planOrPack as keyof typeof PRODUCT_DURATION_DAYS] * 24 * 60 * 60 * 1000),
+            },
           })
         } else {
           const grant = await transaction.user.updateMany({
@@ -157,6 +192,18 @@ export async function PATCH(
             throw new ReviewError("CREDIT_BALANCE_LIMIT", 409)
           }
         }
+        if (payment.promoRedemptionId) {
+          const consumed = await transaction.promoCodeRedemption.updateMany({
+            where: { id: payment.promoRedemptionId, status: "RESERVED" },
+            data: { status: "CONSUMED" },
+          })
+          if (consumed.count !== 1) throw new ReviewError("PROMO_RESERVATION_INVALID", 409)
+        }
+      } else if (payment.promoRedemptionId) {
+        await transaction.promoCodeRedemption.updateMany({
+          where: { id: payment.promoRedemptionId, status: "RESERVED" },
+          data: { status: "AVAILABLE" },
+        })
       }
 
       return {

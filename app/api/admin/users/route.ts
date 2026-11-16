@@ -9,7 +9,7 @@ export async function GET() {
   const users = await prisma.user.findMany({
     where: { role: { not: "ADMIN" } },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, email: true, plan: true, credits: true, createdAt: true },
+    select: { id: true, name: true, email: true, plan: true, proExpiresAt: true, credits: true, createdAt: true },
   })
   return NextResponse.json({ users })
 }
