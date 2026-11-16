@@ -18,6 +18,7 @@
           </div>
         </div>
         <nav class="top-actions" aria-label="Account actions">
+          <span id="signed-user" class="account-badge" title="Not connected">Not connected</span>
           <a id="support-link" class="top-link" href="#">Support</a>
           <span id="credit-badge" class="credit-badge" aria-live="polite">Connect account</span>
           <a id="upgrade-link" class="top-link top-link-upgrade" href="#">Upgrade</a>
@@ -32,13 +33,9 @@
           <p class="sidebar-label">YOUR SESSION</p>
           <ol class="stepper" aria-label="Session setup progress">
             <li><button id="step-context-indicator" class="step-marker active" type="button" aria-current="step"><span>1</span><strong>Context</strong></button></li>
-            <li class="step-line" aria-hidden="true"></li>
+            <li class="step-line" aria-hidden="true"><span>→</span></li>
             <li><button id="step-preferences-indicator" class="step-marker" type="button"><span>2</span><strong>Preferences</strong></button></li>
           </ol>
-          <div class="account-footer">
-            <span class="sidebar-label">SIGNED IN AS</span>
-            <strong id="signed-user">Not connected</strong>
-          </div>
         </aside>
         <div class="content-column">
       <div id="status" class="status" role="status" aria-live="polite" data-state="idle">

@@ -87,7 +87,13 @@ export function verifyAdminToken(token: string): AuthPayload | null {
 
 export function signExtensionToken(payload: AuthPayload): string {
   return jwt.sign(
-    { ...payload, scope: "extension:assistant" },
+    {
+      userId: payload.userId,
+      email: payload.email,
+      role: payload.role,
+      plan: payload.plan,
+      scope: "extension:assistant",
+    },
     JWT_SECRET,
     { expiresIn: "30d", audience: "pitchpilot-chrome-extension" },
   )

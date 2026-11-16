@@ -90,6 +90,11 @@ function showSettingsMessage(message, kind = "") {
   elements.settingsMessage.dataset.kind = kind;
 }
 
+function setConnectionSettingsOpen(open) {
+  elements.connectionSettings.open = open;
+  elements.settingsToggle.setAttribute("aria-expanded", String(open));
+}
+
 function updateStep(step, moveFocus = false) {
   const isContext = step === "context";
   elements.contextStep.hidden = !isContext;
@@ -155,6 +160,7 @@ async function loadDocuments() {
     elements.creditBadge.textContent = "Connect account";
     elements.signedUser.textContent = "Not connected";
     elements.documentsStatus.textContent = "Add an extension token in Settings to load saved documents.";
+    setConnectionSettingsOpen(true);
     return;
   }
 
@@ -186,6 +192,7 @@ async function loadDocuments() {
     elements.documentsStatus.textContent = error instanceof Error ? error.message : "Could not load saved documents.";
     elements.creditBadge.textContent = "Account unavailable";
     elements.signedUser.textContent = "Check connection";
+    setConnectionSettingsOpen(true);
   }
 }
 
@@ -253,7 +260,7 @@ function getSelectedDocumentIds() {
 async function startSession() {
   if (!state.settings?.apiToken) {
     showMessage("Add an extension token in Connection settings before starting a live session.");
-    elements.connectionSettings.open = true;
+    setConnectionSettingsOpen(true);
     return;
   }
   elements.startSession.disabled = true;
@@ -635,6 +642,7 @@ async function saveConnectionSettings() {
     });
     elements.backendOrigin.value = state.settings.apiOrigin;
     showSettingsMessage("Settings saved.", "success");
+    setConnectionSettingsOpen(!state.settings.apiToken);
     await loadDocuments();
   } catch (error) {
     showSettingsMessage(error instanceof Error ? error.message : "Could not save settings.", "error");
@@ -653,6 +661,7 @@ async function clearToken() {
     elements.signedUser.textContent = "Not connected";
     showSettingsMessage("Extension token cleared.", "success");
     elements.documentsStatus.textContent = "Add an extension token in Settings to load saved documents.";
+    setConnectionSettingsOpen(true);
   } catch {
     showSettingsMessage("Could not clear the extension token.", "error");
   }
@@ -666,6 +675,7 @@ async function connectAccount() {
     elements.apiToken.value = state.settings.apiToken;
     elements.backendOrigin.value = state.settings.apiOrigin;
     elements.rememberToken.checked = state.settings.rememberToken;
+    setConnectionSettingsOpen(false);
     showSettingsMessage("Account connected.", "success");
     setStatus("Build your session context", "Add a job description, choose your preferences, then start.", "idle");
     await loadDocuments();
@@ -707,11 +717,13 @@ async function initialize() {
         state.settings = await PitchPilotExtension.connectAccount(state.settings);
         elements.apiToken.value = state.settings.apiToken;
       } catch (error) {
-        elements.connectionSettings.open = true;
+        setConnectionSettingsOpen(true);
         const detail = error instanceof Error ? error.message : "Automatic connection failed.";
         showSettingsMessage(detail, "error");
         setStatus("Connect your account", "Sign in to the backend or use a manual 30-day token in Settings.", "idle");
       }
+    } else {
+      setConnectionSettingsOpen(false);
     }
     await loadDocuments();
     if (state.settings.apiToken) {
@@ -724,8 +736,7 @@ async function initialize() {
 }
 
 elements.settingsToggle.addEventListener("click", () => {
-  elements.connectionSettings.open = !elements.connectionSettings.open;
-  elements.settingsToggle.setAttribute("aria-expanded", String(elements.connectionSettings.open));
+  setConnectionSettingsOpen(!elements.connectionSettings.open);
 });
 elements.connectionSettings.addEventListener("toggle", () => {
   elements.settingsToggle.setAttribute("aria-expanded", String(elements.connectionSettings.open));

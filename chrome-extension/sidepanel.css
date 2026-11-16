@@ -14,7 +14,8 @@
 }
 
 * { box-sizing: border-box; }
-body { min-width: 290px; margin: 0; background: #f1f5f4; }
+html, body { width: 100%; min-width: 0; overflow-x: hidden; }
+body { margin: 0; background: #f1f5f4; }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible {
@@ -205,6 +206,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .top-link { color: #475569; font-size: 10px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .top-link:hover { color: var(--emerald-dark); text-decoration: underline; }
 .top-link-upgrade { color: var(--emerald-dark); }
+.account-badge { max-width: 170px; overflow: hidden; color: #334155; font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .credit-badge { max-width: 112px; overflow: hidden; padding: 5px 8px; border: 1px solid #a7f3d0; border-radius: 999px; color: #065f46; background: #ecfdf5; font-size: 9px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .workspace { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: start; gap: 14px; }
 .session-sidebar { position: sticky; top: 8px; display: flex; min-height: min(620px, calc(100dvh - 82px)); flex-direction: column; padding: 13px 10px; border: 1px solid var(--border); border-radius: 14px; background: white; }
@@ -216,30 +218,45 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .step-marker.active { border-color: #a7f3d0; background: #ecfdf5; }
 .step-marker.complete { color: #065f46; }
 .step-line { width: 1px; height: 12px; margin: 0 0 0 18px; background: #cbd5e1; }
-.account-footer { display: grid; gap: 5px; margin-top: auto; padding-top: 12px; border-top: 1px solid #e2e8f0; }
-.account-footer strong { overflow: hidden; color: #0f172a; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; overflow-wrap: anywhere; }
 .content-column { min-width: 0; }
 .content-column > .status { margin-top: 0; }
 .content-column > .view { min-width: 0; }
 .content-column .stepper { display: none; }
 .content-column > .settings { margin-top: 12px; }
 .footer { grid-column: 1 / -1; }
-@media (max-width: 480px) {
-  .shell { padding: 9px; }
-  .topbar { align-items: flex-start; gap: 6px; }
-  .brand { gap: 6px; }
+.step-line span { display: none; }
+.panel, .content-column, .field, .settings { min-width: 0; max-width: 100%; }
+.field input, .field textarea, .field select { min-width: 0; }
+.settings { width: 100%; }
+@media (max-width: 500px) {
+  .shell { width: 100%; padding: 9px; }
+  .topbar { flex-wrap: wrap; align-items: flex-start; gap: 7px; }
+  .brand { min-width: 0; flex: 1 1 150px; gap: 6px; }
   .brand-mark { width: 32px; height: 32px; flex-basis: 32px; }
   .brand h1 { font-size: 13px; }
-  .top-actions { gap: 6px; }
+  .top-actions { min-width: 0; width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: 7px; }
+  .account-badge { min-width: 0; max-width: 100%; flex: 1 1 100%; order: -1; }
   .top-link { font-size: 9px; }
-  .credit-badge { max-width: 68px; padding: 4px 5px; font-size: 8px; }
-  .icon-button { width: 31px; height: 31px; flex-basis: 31px; }
-  .workspace { grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
-  .session-sidebar { min-height: min(620px, calc(100dvh - 72px)); padding: 9px 6px; }
-  .step-marker { gap: 4px; padding: 7px 4px; font-size: 9px; }
-  .step-marker strong { overflow-wrap: anywhere; }
+  .credit-badge { max-width: 90px; padding: 4px 6px; font-size: 8px; }
+  .icon-button { width: 31px; height: 31px; flex-basis: 31px; margin-left: auto; }
+  .workspace { display: flex; flex-direction: column; gap: 8px; }
+  .session-sidebar { position: static; width: 100%; min-height: 0; padding: 8px; }
+  .session-sidebar > .sidebar-label { display: none; }
+  .stepper { width: 100%; flex-direction: row; align-items: center; gap: 5px; margin: 0; }
+  .stepper li:not(.step-line) { min-width: 0; flex: 0 1 auto; }
+  .step-marker { width: auto; min-width: 0; justify-content: center; gap: 5px; padding: 6px 7px; font-size: 9px; white-space: nowrap; }
+  .step-marker strong { overflow-wrap: normal; }
+  .step-line { display: flex; width: auto; height: auto; min-width: 8px; flex: 1 1 auto; align-items: center; justify-content: center; margin: 0; color: #94a3b8; background: transparent; font-size: 13px; }
+  .step-line span { display: block; }
   .panel { padding: 10px; }
-  .choice-row { grid-template-columns: 1fr; }
-  .import-row .button { flex: 1; }
-  .live-actions { grid-template-columns: 1fr; }
+  .choice-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice-button { min-width: 0; padding-right: 5px; padding-left: 5px; }
+  .import-row .button { flex: 1 1 130px; max-width: 100%; }
+  .live-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .live-actions .button { min-width: 0; overflow-wrap: anywhere; }
+  .settings-actions .button { flex: 1 1 auto; }
+}
+@media (max-width: 360px) {
+  .choice-row, .live-actions { grid-template-columns: 1fr; }
+  .step-marker { gap: 4px; padding-right: 4px; padding-left: 4px; }
 }
