@@ -9,6 +9,8 @@ type AnswerRequest = {
   imageBase64?: unknown
   mode?: unknown
   sessionId?: unknown
+  contextText?: unknown
+  documentIds?: unknown
 }
 
 const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/
@@ -70,6 +72,21 @@ export async function POST(request: Request) {
   const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64 : undefined
   const mode = typeof body.mode === "string" ? body.mode.slice(0, 40) : "COPILOT"
   const sessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : ""
+  const contextText = typeof body.contextText === "string" ? body.contextText.trim() : ""
+  if (body.contextText !== undefined && (typeof body.contextText !== "string" || contextText.length > 30_000)) {
+    return jsonResponse(request, { error: "Session context must be text under 30,000 characters." }, 400)
+  }
+  let documentIds: string[] | undefined
+  if (body.documentIds !== undefined) {
+    if (
+      !Array.isArray(body.documentIds) ||
+      body.documentIds.length > 30 ||
+      body.documentIds.some((id) => typeof id !== "string" || id.length > 128)
+    ) {
+      return jsonResponse(request, { error: "Choose up to 30 valid saved documents." }, 400)
+    }
+    documentIds = [...new Set(body.documentIds as string[])]
+  }
   if (!question || question.length > 12_000) {
     return jsonResponse(request, { error: "Enter a question under 12,000 characters." }, 400)
   }
@@ -108,6 +125,21 @@ export async function POST(request: Request) {
     }
   }
 
+  let documents
+  try {
+    documents = await prisma.document.findMany({
+      where: {
+        userId: user.userId,
+        ...(documentIds === undefined ? {} : { id: { in: documentIds } }),
+      },
+    })
+    if (documentIds !== undefined && documents.length !== documentIds.length) {
+      return jsonResponse(request, { error: "One or more selected documents are not accessible." }, 404)
+    }
+  } catch {
+    return jsonResponse(request, { error: "Could not load the selected documents." }, 502)
+  }
+
   const reservation = await reserveCredits(user.userId, 1)
   if (!reservation.ok) {
     if (reservation.reason === "missing") {
@@ -117,11 +149,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const documents = await prisma.document.findMany({
-      where: { userId: user.userId },
-    })
     const vaultContext = [
       ...documents.map((document) => `[${document.docType}] ${document.title}: ${document.content}`),
+      contextText ? `Session context:\n${contextText}` : "",
       sessionContext,
     ].filter(Boolean).join("\n\n")
 

@@ -61,19 +61,22 @@ export function verifyAdminToken(token: string): AuthPayload | null {
 export function signExtensionToken(payload: AuthPayload): string {
   if (!JWT_SECRET) throw new Error("JWT_SECRET must be configured")
   return jwt.sign(
-    { ...payload, scope: "copilot:answer" },
+    { ...payload, scope: "extension:assistant" },
     JWT_SECRET,
     { expiresIn: "1h", audience: "pitchpilot-chrome-extension" },
   )
 }
 
-export function verifyExtensionToken(token: string): AuthPayload | null {
+export function verifyExtensionToken(token: string, requiredScope?: string): AuthPayload | null {
   if (!JWT_SECRET) return null
   try {
     const payload = jwt.verify(token, JWT_SECRET, {
       audience: "pitchpilot-chrome-extension",
     }) as AuthPayload & { scope?: string }
-    if (payload.scope !== "copilot:answer" || typeof payload.userId !== "string") {
+    const acceptedScope = requiredScope
+      ? payload.scope === requiredScope
+      : payload.scope === "copilot:answer" || payload.scope === "extension:assistant"
+    if (!acceptedScope || typeof payload.userId !== "string") {
       return null
     }
     return payload

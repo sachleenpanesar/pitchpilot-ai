@@ -23,7 +23,7 @@ export default function ExtensionAccessPage() {
         return
       }
       setToken(result.token)
-      setMessage("This token expires in 60 minutes and can only call the copilot answer API. Copy it now; it will not be shown again.")
+      setMessage("This token expires in 60 minutes and can call the copilot answer API and read your saved document titles and credit balance. Copy it now; it will not be shown again.")
     } catch {
       setMessage("Could not reach the server. Please try again.")
     } finally {
@@ -45,7 +45,7 @@ export default function ExtensionAccessPage() {
       <a className="text-sm font-semibold text-emerald-700 hover:text-emerald-800" href="/dashboard">← Back to dashboard</a>
       <h1 className="mt-6 text-3xl font-bold tracking-tight">Chrome extension access</h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        Create a short-lived bearer token for PitchPilot Sidekick. It is scoped to the copilot answer API, expires after one hour, and is only displayed once.
+        Create a short-lived bearer token for the PitchPilot Chrome extension. It can request copilot answers and read your saved document titles and credit balance, expires after one hour, and is only displayed once.
       </p>
       <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
         Keep this token private. The extension stores it only in this panel unless you explicitly enable “Remember this token”; do not save it on a shared device.

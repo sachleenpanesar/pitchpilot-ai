@@ -82,7 +82,7 @@ export async function sendSupportTicketAlert(input: {
   const safeTicketId = escapeHtml(input.ticketId)
 
   await sendEmail(
-    "admin@pitchpilot.in",
+    "sachleen49@gmail.com",
     `New support ticket: ${input.subject}`,
     `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#172033">
       <h1 style="font-size:22px">New support ticket</h1>

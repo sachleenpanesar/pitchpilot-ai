@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client"
 const prisma = new PrismaClient()
 
 async function main() {
-  const email = (process.env.ADMIN_EMAIL || "admin@pitchpilot.in").trim().toLowerCase()
+  const email = "sachleen49@gmail.com"
   const password = process.env.ADMIN_PASSWORD
 
   if (!password) {
@@ -15,20 +15,32 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash(password, 12)
-  await prisma.user.upsert({
-    where: { email },
-    update: { passwordHash, role: "ADMIN", plan: "PRO", credits: 100 },
-    create: {
-      email,
-      name: "PitchPilot Admin",
-      passwordHash,
-      role: "ADMIN",
-      plan: "PRO",
-      credits: 100,
-    },
+  const legacyEmail = "admin@pitchpilot.in"
+  const demotedLegacyAccounts = await prisma.$transaction(async (tx) => {
+    const demoted = await tx.user.updateMany({
+      where: { email: legacyEmail, role: "ADMIN" },
+      data: { role: "USER" },
+    })
+
+    await tx.user.upsert({
+      where: { email },
+      update: { passwordHash, role: "ADMIN", plan: "PRO", credits: 100 },
+      create: {
+        email,
+        name: "PitchPilot Admin",
+        passwordHash,
+        role: "ADMIN",
+        plan: "PRO",
+        credits: 100,
+      },
+    })
+
+    return demoted.count
   })
 
-  console.log(`Seeded admin account ${email} with 100 credits.`)
+  console.log(
+    `Seeded admin account ${email} with 100 credits; demoted ${demotedLegacyAccounts} legacy admin account(s).`,
+  )
 }
 
 main()

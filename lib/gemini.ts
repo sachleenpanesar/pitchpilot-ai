@@ -141,8 +141,8 @@ export async function getAICopilotResponse({
   if (!apiKey) return fallbackCopilotResponse()
 
   const prompt = `
-You are PitchPilot AI, an expert stealth career, coding, and interview copilot.
-The user is currently in a live interview or coding assessment.
+You are PitchPilot AI, an expert career, coding, interview, and business-meeting copilot.
+The user may be in a live interview, coding assessment, or regular business meeting. Follow the supplied mode and session context.
 User Vault / Resume Context:
 ${vaultContext}
 
