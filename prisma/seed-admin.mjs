@@ -19,17 +19,18 @@ async function main() {
   const demotedLegacyAccounts = await prisma.$transaction(async (tx) => {
     const demoted = await tx.user.updateMany({
       where: { email: legacyEmail, role: "ADMIN" },
-      data: { role: "USER" },
+      data: { role: "USER", isAdmin: false },
     })
 
     await tx.user.upsert({
       where: { email },
-      update: { passwordHash, role: "ADMIN", plan: "PRO", credits: 100 },
+      update: { passwordHash, role: "ADMIN", isAdmin: true, plan: "PRO", credits: 100 },
       create: {
         email,
         name: "PitchPilot Admin",
         passwordHash,
         role: "ADMIN",
+        isAdmin: true,
         plan: "PRO",
         credits: 100,
       },

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { signAdminToken } from "@/lib/auth"
+import { isAdminAccount } from "@/lib/admin-auth"
 
 export async function POST(request: Request) {
   let credentials: unknown
@@ -25,11 +26,11 @@ export async function POST(request: Request) {
   try {
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, passwordHash: true, role: true, plan: true },
+      select: { id: true, email: true, passwordHash: true, isAdmin: true, plan: true },
     })
     if (
       !user ||
-      user.role !== "ADMIN" ||
+      !isAdminAccount(user) ||
       !(await bcrypt.compare(password, user.passwordHash))
     ) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     })
     return response
   } catch (error) {
-    console.error("Admin login failed:", error)
-    return NextResponse.json({ error: "Unable to sign in right now" }, { status: 500 })
+    console.error("Admin login failed.", error instanceof Error ? error.name : "UnknownError")
+    return NextResponse.json({ error: "Admin sign-in is temporarily unavailable" }, { status: 503 })
   }
 }

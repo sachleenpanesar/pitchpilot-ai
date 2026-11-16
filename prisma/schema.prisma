@@ -15,6 +15,7 @@ model User {
   otpCode          String?
   otpExpiresAt     DateTime?
   role             String                @default("USER") // ADMIN, USER
+  isAdmin          Boolean               @default(false)
   credits          Int                   @default(50)
   plan             String                @default("FREE") // FREE, PRO, UNLIMITED
   proExpiresAt     DateTime?

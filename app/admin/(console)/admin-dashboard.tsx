@@ -62,12 +62,16 @@ export default function AdminDashboard({
   initialSettings,
   totalUsers,
   proUsers,
+  initialUsersLoadFailed = false,
+  initialLoadWarning = "",
   section = "overview",
 }: {
   initialUsers?: User[]
   initialSettings?: Partial<Settings>
   totalUsers?: number
   proUsers?: number
+  initialUsersLoadFailed?: boolean
+  initialLoadWarning?: string
   section?: "overview" | "users" | "promos" | "settings" | "upi-payments" | "support"
 }) {
   const [users, setUsers] = useState(initialUsers ?? [])
@@ -344,6 +348,12 @@ export default function AdminDashboard({
         </div>
       </div>
 
+      {initialLoadWarning && (
+        <p role="alert" className="mb-5 rounded-xl border border-amber-400/30 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+          Admin data is incomplete or using safe defaults. {initialLoadWarning} Other available data is still shown.
+        </p>
+      )}
+
       {(section === "users" || section === "settings") && (message || error) && <p role={error ? "alert" : "status"} className={`mb-5 rounded-xl border px-4 py-3 text-sm ${error ? "border-red-500/30 bg-red-950/30 text-red-200" : "border-emerald-500/30 bg-emerald-950/30 text-emerald-200"}`}>{error || message}</p>}
 
       {section === "overview" && <>
@@ -365,9 +375,9 @@ export default function AdminDashboard({
       </section>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Members</p><p className="mt-2 text-3xl font-semibold text-white">{totalUsers ?? 0}</p></div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Pro plans</p><p className="mt-2 text-3xl font-semibold text-indigo-300">{proUsers ?? 0}</p></div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Free plans</p><p className="mt-2 text-3xl font-semibold text-zinc-200">{(totalUsers ?? 0) - (proUsers ?? 0)}</p></div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Members</p><p className="mt-2 text-3xl font-semibold text-white">{totalUsers ?? "Unavailable"}</p></div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Pro plans</p><p className="mt-2 text-3xl font-semibold text-indigo-300">{proUsers ?? "Unavailable"}</p></div>
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"><p className="text-xs uppercase tracking-wider text-zinc-500">Free plans</p><p className="mt-2 text-3xl font-semibold text-zinc-200">{totalUsers !== undefined && proUsers !== undefined ? totalUsers - proUsers : "Unavailable"}</p></div>
       </div>
       </>}
 
@@ -376,7 +386,7 @@ export default function AdminDashboard({
             <Users className="h-5 w-5 text-indigo-300" />
             <div><h2 className="font-semibold text-white">Members</h2><p className="text-xs text-zinc-500">Manage plan access, Pro expiry, and bonus credits.</p></div>
           </div>
-          {users.length === 0 ? <p className="p-8 text-center text-sm text-zinc-500">No members yet.</p> : (
+          {users.length === 0 ? <p className="p-8 text-center text-sm text-zinc-500">{initialUsersLoadFailed ? "Member list unavailable." : "No members yet."}</p> : (
             <div className="divide-y divide-zinc-800">
               {users.map((user) => (
                 <article key={user.id} className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
@@ -485,7 +495,7 @@ export default function AdminDashboard({
         {paymentsLoading ? (
           <p className="flex items-center justify-center gap-2 p-8 text-sm text-zinc-400" role="status"><LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading pending payments…</p>
         ) : pendingPayments.length === 0 ? (
-          <p className="p-8 text-center text-sm text-zinc-500">No pending UPI payment requests.</p>
+          <p className="p-8 text-center text-sm text-zinc-500">{paymentsError ? "Pending payment requests could not be loaded." : "No pending UPI payment requests."}</p>
         ) : (
           <div className="divide-y divide-zinc-800">
               {pendingPayments.map((payment) => (
