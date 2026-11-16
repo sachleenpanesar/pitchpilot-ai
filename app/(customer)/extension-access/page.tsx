@@ -12,18 +12,19 @@ export default function ExtensionAccessPage() {
     setToken("")
     setMessage("")
     try {
-      const response = await fetch("/api/auth/extension-token", {
+      const response = await fetch("/api/extension/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "{}",
+        credentials: "include",
       })
-      const result = await response.json()
+      const result = await response.json().catch(() => ({}))
       if (!response.ok) {
         setMessage(result.error || "Could not create a token. Sign in and try again.")
         return
       }
       setToken(result.token)
-      setMessage("This token expires in 60 minutes and can call the copilot answer API and read your saved document titles and credit balance. Copy it now; it will not be shown again.")
+      setMessage("This token expires in 30 days and can call the copilot answer API and read your saved document titles and credit balance. Copy it now; it will not be shown again.")
     } catch {
       setMessage("Could not reach the server. Please try again.")
     } finally {
@@ -43,9 +44,9 @@ export default function ExtensionAccessPage() {
   return (
     <main className="mx-auto max-w-xl px-6 py-12 text-slate-900">
       <a className="text-sm font-semibold text-emerald-700 hover:text-emerald-800" href="/dashboard">← Back to dashboard</a>
-      <h1 className="mt-6 text-3xl font-bold tracking-tight">Chrome extension access</h1>
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        Create a short-lived bearer token for the PitchPilot Chrome extension. It can request copilot answers and read your saved document titles and credit balance, expires after one hour, and is only displayed once.
+      <h1 className="mt-6 text-3xl font-bold tracking-tight text-white">Chrome extension access</h1>
+      <p className="mt-3 text-sm leading-6 text-slate-300">
+        Create a bearer token for the PitchPilot Chrome extension. It can request copilot answers and read your saved document titles and credit balance, expires after 30 days, and is only displayed once.
       </p>
       <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
         Keep this token private. The extension stores it only in this panel unless you explicitly enable “Remember this token”; do not save it on a shared device.
@@ -56,7 +57,7 @@ export default function ExtensionAccessPage() {
         onClick={createToken}
         disabled={busy}
       >
-        {busy ? "Creating token…" : "Create one-hour token"}
+        {busy ? "Creating token…" : "Create 30-day token"}
       </button>
       {token ? (
         <div className="mt-5">

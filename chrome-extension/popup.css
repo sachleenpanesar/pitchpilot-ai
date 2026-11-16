@@ -68,7 +68,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   font-size: 11px;
 }
 .upgrade-link { color: #047857; font-size: 11px; font-weight: 800; text-decoration: none; }
-.upgrade-link:hover, .quick-links a:hover { color: #065f46; text-decoration: underline; }
+.upgrade-link:hover, .quick-links a:hover, .quick-links button:hover { color: #065f46; text-decoration: underline; }
 .open-panel {
   display: flex;
   width: 100%;
@@ -99,7 +99,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .open-panel strong { font-size: 12px; }
 .open-panel small { margin-top: 3px; color: #d1fae5; font-size: 9px; }
 .quick-links { display: flex; justify-content: space-between; margin: 14px 2px 0; }
-.quick-links a { color: #475569; font-size: 10px; font-weight: 700; text-decoration: none; }
+.quick-links a, .quick-link-button { padding: 0; border: 0; color: #475569; background: transparent; font-size: 10px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.quick-link-button:disabled { opacity: .6; cursor: wait; }
 .settings-panel {
   margin-top: 14px;
   padding: 13px;
@@ -121,6 +122,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: #fff;
   font-size: 11px;
 }
+.manual-token-link { display: inline-block; margin-top: 6px; color: #047857; font-size: 10px; font-weight: 700; text-decoration: none; }
+.manual-token-link:hover { color: #065f46; text-decoration: underline; }
 .remember-row { display: flex; align-items: center; gap: 7px; margin-top: 10px; color: #334155; font-size: 10px; }
 .remember-row input { accent-color: #047857; }
 .settings-hint, .settings-message { margin: 7px 0 0; color: #64748b; font-size: 9px; line-height: 1.45; }

@@ -150,14 +150,15 @@
         <label class="field" for="backend-origin">Backend URL
           <input id="backend-origin" type="url" autocomplete="url" spellcheck="false">
         </label>
-        <label class="field" for="api-token">One-hour extension token
+        <label class="field" for="api-token">30-day extension token
           <input id="api-token" type="password" autocomplete="off" spellcheck="false" placeholder="Create one from Extension Access">
         </label>
+        <button id="connect-account" class="button button-secondary button-wide" type="button">Connect signed-in account</button>
         <label class="remember-row" for="remember-token">
           <input id="remember-token" type="checkbox">
           <span>Remember token on this device</span>
         </label>
-        <p class="privacy">Tokens are session-only by default. Configure a token at <a id="extension-access-link" href="#">Extension Access</a>. Screenshots and text go only to your configured backend.</p>
+        <p class="privacy">Tokens are session-only by default. If automatic connection is unavailable, create a token at <a id="extension-access-link" href="#">Extension Access</a>. Screenshots and text go only to your configured backend.</p>
         <div class="settings-actions">
           <button id="save-settings" class="button button-secondary" type="button">Save settings</button>
           <button id="clear-token" class="button button-quiet" type="button">Clear token</button>

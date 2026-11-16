@@ -35,7 +35,7 @@
 
       <nav class="quick-links" aria-label="Quick links">
         <a id="support-link" href="#">Support</a>
-        <a id="token-link" href="#">Connect account</a>
+        <button id="connect-account" class="quick-link-button" type="button">Connect account</button>
       </nav>
 
       <section id="settings-panel" class="settings-panel" hidden>
@@ -48,8 +48,9 @@
         </div>
         <label for="backend-origin">Backend URL</label>
         <input id="backend-origin" type="url" autocomplete="url" spellcheck="false">
-        <label for="extension-token">One-hour extension token</label>
+        <label for="extension-token">30-day extension token</label>
         <input id="extension-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste token from Extension Access">
+        <a id="manual-token-link" class="manual-token-link" href="#">Get a token manually</a>
         <label class="remember-row" for="remember-token">
           <input id="remember-token" type="checkbox">
           <span>Remember token on this device</span>

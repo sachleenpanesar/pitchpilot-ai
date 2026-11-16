@@ -12,7 +12,8 @@ const elements = {
   creditBadge: document.getElementById("credit-badge"),
   upgradeLink: document.getElementById("upgrade-link"),
   supportLink: document.getElementById("support-link"),
-  tokenLink: document.getElementById("token-link"),
+  connectAccount: document.getElementById("connect-account"),
+  manualTokenLink: document.getElementById("manual-token-link"),
   openPanel: document.getElementById("open-panel"),
 };
 
@@ -34,7 +35,7 @@ async function loadPopup() {
     elements.rememberToken.checked = settings.rememberToken;
     elements.upgradeLink.href = `${settings.apiOrigin}/pricing`;
     elements.supportLink.href = `${settings.apiOrigin}/dashboard`;
-    elements.tokenLink.href = `${settings.apiOrigin}/extension-access`;
+    elements.manualTokenLink.href = `${settings.apiOrigin}/extension-access`;
 
     if (!settings.apiToken) {
       elements.creditBadge.textContent = "Connect token";
@@ -70,13 +71,35 @@ async function savePopupSettings() {
     elements.backendOrigin.value = settings.apiOrigin;
     elements.upgradeLink.href = `${settings.apiOrigin}/pricing`;
     elements.supportLink.href = `${settings.apiOrigin}/dashboard`;
-    elements.tokenLink.href = `${settings.apiOrigin}/extension-access`;
+    elements.manualTokenLink.href = `${settings.apiOrigin}/extension-access`;
     showSettingsMessage("Settings saved.", "success");
     await loadPopup();
   } catch (error) {
     showSettingsMessage(error instanceof Error ? error.message : "Could not save settings.", "error");
   } finally {
     elements.saveSettings.disabled = false;
+  }
+}
+
+async function connectAccount() {
+  elements.connectAccount.disabled = true;
+  elements.creditBadge.textContent = "Connecting…";
+  showSettingsMessage("");
+  try {
+    const settings = await PitchPilotExtension.loadSettings();
+    const connected = await PitchPilotExtension.connectAccount(settings);
+    elements.extensionToken.value = connected.apiToken;
+    elements.backendOrigin.value = connected.apiOrigin;
+    elements.rememberToken.checked = connected.rememberToken;
+    showSettingsMessage("Account connected. Token stored using your current storage preference.", "success");
+    await loadPopup();
+  } catch (error) {
+    elements.creditBadge.textContent = "Not connected";
+    showSettingsMessage(error instanceof Error ? error.message : "Could not connect your account.", "error");
+    elements.settingsPanel.hidden = false;
+    elements.settingsToggle.setAttribute("aria-expanded", "true");
+  } finally {
+    elements.connectAccount.disabled = false;
   }
 }
 
@@ -103,9 +126,10 @@ elements.upgradeLink.addEventListener("click", (event) => {
   event.preventDefault();
   void PitchPilotExtension.openAppPage("/pricing");
 });
-elements.tokenLink.addEventListener("click", (event) => {
+elements.manualTokenLink.addEventListener("click", (event) => {
   event.preventDefault();
   void PitchPilotExtension.openAppPage("/extension-access");
 });
+elements.connectAccount.addEventListener("click", () => void connectAccount());
 
 void loadPopup();

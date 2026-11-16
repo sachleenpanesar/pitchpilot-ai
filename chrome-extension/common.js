@@ -117,6 +117,134 @@
     ]);
   }
 
+  async function getTokenFromSignedInTab(apiOrigin) {
+    const tab = await chrome.tabs.create({
+      url: `${apiOrigin}/extension-access`,
+      active: false,
+    });
+    if (typeof tab.id !== "number") {
+      throw new Error("Could not open a temporary account tab.");
+    }
+
+    try {
+      await new Promise((resolve, reject) => {
+        let timeoutId;
+        const cleanup = () => {
+          clearTimeout(timeoutId);
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+        };
+        const onUpdated = (tabId, changeInfo) => {
+          if (tabId !== tab.id || changeInfo.status !== "complete") return;
+          cleanup();
+          resolve();
+        };
+        timeoutId = setTimeout(() => {
+          cleanup();
+          reject(new Error("The account page did not finish loading."));
+        }, 20000);
+        chrome.tabs.onUpdated.addListener(onUpdated);
+        void chrome.tabs.get(tab.id).then((currentTab) => {
+          if (currentTab.status === "complete") {
+            cleanup();
+            resolve();
+          }
+        }, (error) => {
+          cleanup();
+          reject(error);
+        });
+      });
+
+      const currentTab = await chrome.tabs.get(tab.id);
+      if (!currentTab.url || new URL(currentTab.url).origin !== apiOrigin) {
+        throw new Error("The account page navigated away from the configured backend.");
+      }
+
+      const [execution] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: "MAIN",
+        func: async () => {
+          const response = await fetch("/api/extension/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+            credentials: "include",
+          });
+          let payload;
+          try {
+            payload = await response.json();
+          } catch {
+            return { error: `The account service returned an unreadable response (${response.status}).` };
+          }
+          return response.ok
+            ? payload
+            : { error: payload.error || `Account connection failed (${response.status}).` };
+        },
+      });
+
+      if (!execution?.result || typeof execution.result.token !== "string") {
+        throw new Error(
+          typeof execution?.result?.error === "string"
+            ? execution.result.error
+            : "The account page did not return an extension token.",
+        );
+      }
+      return execution.result.token;
+    } finally {
+      try {
+        await chrome.tabs.remove(tab.id);
+      } catch (error) {
+        console.warn("Could not close the temporary account tab:", error);
+      }
+    }
+  }
+
+  async function connectAccount(settings) {
+    const current = settings || await loadSettings();
+    const apiOrigin = normalizeApiOrigin(current.apiOrigin);
+    await ensureOriginPermission(apiOrigin);
+
+    let response;
+    try {
+      response = await fetch(`${apiOrigin}/api/extension/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        credentials: "include",
+      });
+    } catch {
+      throw new Error("Could not reach the account service. Check the backend URL and Chrome origin permission.");
+    }
+
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error(`The account service returned an unreadable response (${response.status}).`);
+    }
+    let token;
+    if (response.status === 401) {
+      token = await getTokenFromSignedInTab(apiOrigin);
+    } else if (!response.ok) {
+      throw new Error(
+        typeof payload.error === "string"
+          ? payload.error
+          : `Automatic account connection failed (${response.status}).`,
+      );
+    } else {
+      token = payload.token;
+    }
+    if (typeof token !== "string" || !token.trim()) {
+      throw new Error("The account service did not return an extension token.");
+    }
+
+    return saveSettings({
+      ...current,
+      apiOrigin,
+      apiToken: token,
+      rememberToken: current.rememberToken,
+    });
+  }
+
   async function requestJson(path, settings, options = {}) {
     if (!settings.apiToken) {
       throw new Error("Add an extension token in Settings. You can create one from Extension Access.");
@@ -161,6 +289,7 @@
     loadSettings,
     saveSettings,
     clearToken,
+    connectAccount,
     requestJson,
     openFullSidePanel,
     openAppPage,

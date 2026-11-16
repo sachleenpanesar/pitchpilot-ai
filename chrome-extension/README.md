@@ -3,7 +3,7 @@
 ## Install
 
 1. In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this `chrome-extension` folder.
-2. Click the PitchPilot toolbar icon, open **Settings**, and create a one-hour token from **Extension Access** on the configured backend. Paste it into the extension. Tokens remain in session storage unless **Remember token on this device** is selected.
+2. Sign in to the configured backend in the same Chrome profile. The extension attempts to connect automatically when the Side Panel opens; use **Connect account** in the popup or Side Panel to retry. If automatic connection is unavailable, create a 30-day token from **Extension Access** and paste it into Settings. Tokens remain in session storage unless **Remember token on this device** is selected.
 3. Use **Open Full Side Panel** to prepare a session and start the Live Copilot.
 
 The default backend is `https://pitchpilot-ai-ruddy.vercel.app`. A local development backend can be set to `http://localhost:3000`. Selecting a different backend asks Chrome for access to that origin.
@@ -20,5 +20,5 @@ The default backend is `https://pitchpilot-ai-ruddy.vercel.app`. A local develop
 - Screenshots, recognized text, job descriptions, and selected document IDs are sent only to the configured backend. The backend verifies document ownership and applies account credits.
 - Page text is read only after **Import from Current Tab** is clicked and uses Chrome's `activeTab`/`scripting` permissions.
 - Speech recognition is provided by Chrome's Web Speech API and may use Chrome's speech service. The extension does not record microphone audio to a file.
-- A bearer token expires after one hour. Session-only tokens use Chrome session storage; remembered tokens use local extension storage, which is not encrypted. Use **Clear token** or remove the extension to clear it.
+- A bearer token expires after 30 days. Session-only tokens use Chrome session storage; remembered tokens use local extension storage, which is not encrypted. Use **Clear token** or remove the extension to clear it.
 - The extension never receives or stores `GEMINI_API_KEY`. AI requests use the account's server-side configuration.

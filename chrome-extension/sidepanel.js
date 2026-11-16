@@ -11,6 +11,7 @@ const elements = {
   rememberToken: document.getElementById("remember-token"),
   saveSettings: document.getElementById("save-settings"),
   clearToken: document.getElementById("clear-token"),
+  connectAccount: document.getElementById("connect-account"),
   settingsMessage: document.getElementById("settings-message"),
   extensionAccessLink: document.getElementById("extension-access-link"),
   status: document.getElementById("status"),
@@ -628,6 +629,25 @@ async function clearToken() {
   }
 }
 
+async function connectAccount() {
+  elements.connectAccount.disabled = true;
+  showSettingsMessage("Connecting to your signed-in account…");
+  try {
+    state.settings = await PitchPilotExtension.connectAccount(state.settings);
+    elements.apiToken.value = state.settings.apiToken;
+    elements.backendOrigin.value = state.settings.apiOrigin;
+    elements.rememberToken.checked = state.settings.rememberToken;
+    showSettingsMessage("Account connected.", "success");
+    setStatus("Build your session context", "Add a job description, choose your preferences, then start.", "idle");
+    await loadDocuments();
+  } catch (error) {
+    showSettingsMessage(error instanceof Error ? error.message : "Could not connect your account.", "error");
+    setStatus("Connect your account", "Automatic connection failed. Sign in to the backend or use a manual token.", "error");
+  } finally {
+    elements.connectAccount.disabled = false;
+  }
+}
+
 async function saveAutoAnswer() {
   try {
     const stored = await chrome.storage.local.get(SETTINGS_KEY);
@@ -651,10 +671,19 @@ async function initialize() {
     elements.answerStyle.value = state.settings.answerStyle;
     selectSessionType(state.settings.sessionType);
     elements.extensionAccessLink.href = `${state.settings.apiOrigin}/extension-access`;
-    await loadDocuments();
     if (!state.settings.apiToken) {
-      setStatus("Connect your account", "Open Settings to add a one-hour extension token.", "idle");
-    } else {
+      try {
+        state.settings = await PitchPilotExtension.connectAccount(state.settings);
+        elements.apiToken.value = state.settings.apiToken;
+      } catch (error) {
+        elements.connectionSettings.open = true;
+        const detail = error instanceof Error ? error.message : "Automatic connection failed.";
+        showSettingsMessage(detail, "error");
+        setStatus("Connect your account", "Sign in to the backend or use a manual 30-day token in Settings.", "idle");
+      }
+    }
+    await loadDocuments();
+    if (state.settings.apiToken) {
       setStatus("Build your session context", "Add a job description, choose your preferences, then start.", "idle");
     }
   } catch (error) {
@@ -676,6 +705,7 @@ elements.extensionAccessLink.addEventListener("click", (event) => {
 });
 elements.saveSettings.addEventListener("click", () => void saveConnectionSettings());
 elements.clearToken.addEventListener("click", () => void clearToken());
+elements.connectAccount.addEventListener("click", () => void connectAccount());
 elements.sessionTypeButtons.forEach((button) => {
   button.addEventListener("click", () => selectSessionType(button.dataset.sessionType));
 });

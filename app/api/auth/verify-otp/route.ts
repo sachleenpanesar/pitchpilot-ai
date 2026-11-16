@@ -55,6 +55,13 @@ export async function POST(req: Request) {
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
     })
+    cookieStore.set("extension_auth_token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    })
 
     return NextResponse.json({
       success: true,

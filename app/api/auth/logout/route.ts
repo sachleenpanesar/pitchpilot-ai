@@ -10,6 +10,13 @@ async function clearAuthCookie() {
     path: "/",
     maxAge: 0,
   })
+  cookieStore.set("extension_auth_token", "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 0,
+  })
 }
 
 export async function GET(request: Request) {
