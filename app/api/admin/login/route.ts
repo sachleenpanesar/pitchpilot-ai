@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
+import { timingSafeEqual } from "node:crypto"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/prisma"
 import { signAdminToken } from "@/lib/auth"
-import { isAdminAccount } from "@/lib/admin-auth"
+
+function matchesPlaintextPassword(submitted: string, expected: string): boolean {
+  const submittedBytes = Buffer.from(submitted)
+  const expectedBytes = Buffer.from(expected)
+  return submittedBytes.length === expectedBytes.length && timingSafeEqual(submittedBytes, expectedBytes)
+}
 
 export async function POST(request: Request) {
   let credentials: unknown
@@ -18,29 +23,33 @@ export async function POST(request: Request) {
 
   const body = credentials as Record<string, unknown>
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
-  const password = typeof body.password === "string" ? body.password : ""
+  const password = typeof body.password === "string" ? body.password.trim() : ""
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
   }
 
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
+  const adminPassword = process.env.ADMIN_PASSWORD?.trim()
+  if (!adminEmail || !adminPassword) {
+    return NextResponse.json({ error: "Admin login is not configured" }, { status: 503 })
+  }
+  if (email !== adminEmail) {
+    return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+  }
+
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true, email: true, passwordHash: true, isAdmin: true, plan: true },
-    })
-    if (
-      !user ||
-      !isAdminAccount(user) ||
-      !(await bcrypt.compare(password, user.passwordHash))
-    ) {
+    const validPassword = adminPassword.startsWith("$2")
+      ? await bcrypt.compare(password, adminPassword)
+      : matchesPlaintextPassword(password, adminPassword)
+    if (!validPassword) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
     const token = signAdminToken({
-      userId: user.id,
-      email: user.email,
+      userId: `env-admin:${adminEmail}`,
+      email: adminEmail,
       role: "ADMIN",
-      plan: user.plan,
+      plan: "PRO",
     })
     const response = NextResponse.json({ success: true })
     response.cookies.set("admin_token", token, {

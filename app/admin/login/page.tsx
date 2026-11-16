@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: password.trim() }),
       });
       const data = await response.json().catch(() => null);
 
@@ -59,6 +59,7 @@ export default function AdminLoginPage() {
               name="email"
               type="email"
               autoComplete="username"
+              autoCapitalize="none"
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
