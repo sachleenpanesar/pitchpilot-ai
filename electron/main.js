@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut } = require('electron');
+const { app, BrowserWindow, globalShortcut, session } = require('electron');
 const http = require('http');
 const path = require('path');
 
@@ -7,14 +7,14 @@ let clickThrough = false;
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
-    width: 420,
-    height: 560,
-    x: 50,
-    y: 50,
+    width: 440,
+    height: 580,
+    x: 40,
+    y: 40,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
-    skipTaskbar: true, // Hides from Windows taskbar and macOS Dock
+    skipTaskbar: true,
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -23,20 +23,25 @@ function createOverlayWindow() {
     },
   });
 
-  // OS-LEVEL SCREEN-SHARE EXCLUSION (Hidden from Zoom, Meet, Teams, OBS)
+  // OS-LEVEL SCREEN-SHARE EXCLUSION (Invisible on Teams, Zoom, Meet, OBS)
   overlayWindow.setContentProtection(true);
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
 
+  // Auto-grant microphone permission inside the Stealth HUD
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'media');
+  });
+
   overlayWindow.loadFile(path.join(__dirname, 'overlay.html'));
 
-  // Panic Hide / Show Shortcut (Ctrl+Shift+H or Cmd+Shift+H)
+  // Global Panic Hide / Show (Ctrl+Shift+H)
   globalShortcut.register('CommandOrControl+Shift+H', () => {
     if (!overlayWindow) return;
     overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
   });
 
-  // Click-Through Toggle (Ctrl+Shift+T) so clicks pass through to apps behind it
+  // Global Click-Through Toggle (Ctrl+Shift+T)
   globalShortcut.register('CommandOrControl+Shift+T', () => {
     if (!overlayWindow) return;
     clickThrough = !clickThrough;
@@ -45,7 +50,6 @@ function createOverlayWindow() {
   });
 }
 
-// Local HTTP bridge to receive JD/CV status & AI answers from your Chrome Extension
 function startLocalBridge() {
   const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,30 +61,27 @@ function startLocalBridge() {
       return res.end();
     }
 
-    if (req.method === 'POST' && req.url === '/push-prompt') {
-      let body = '';
-      req.on('data', (chunk) => (body += chunk));
-      req.on('end', () => {
-        try {
-          const data = JSON.parse(body);
-          if (overlayWindow) {
-            overlayWindow.webContents.send('new-ai-prompt', data);
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true }));
-        } catch (err) {
-          res.writeHead(400);
-          res.end('Invalid JSON');
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body || '{}');
+        if (req.url === '/push-prompt' && overlayWindow) {
+          overlayWindow.webContents.send('new-ai-prompt', data);
+        } else if (req.url === '/sync-context' && overlayWindow) {
+          overlayWindow.webContents.send('sync-context', data);
         }
-      });
-    } else {
-      res.writeHead(404);
-      res.end();
-    }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(400);
+        res.end('Invalid JSON');
+      }
+    });
   });
 
   server.listen(4789, '127.0.0.1', () => {
-    console.log('PitchPilot Stealth Bridge listening on http://127.0.0.1:4789');
+    console.log('PitchPilot Stealth Bridge active on http://127.0.0.1:4789');
   });
 }
 

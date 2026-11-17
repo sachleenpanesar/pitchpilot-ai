@@ -1,7 +1,7 @@
 "use strict";
 
 const DEFAULT_API_ORIGIN = "https://pitchpilot-ai-ruddy.vercel.app";
-const STEALTH_HUD_URL = "http://127.0.0.1:4789/push-prompt";
+const STEALTH_BRIDGE_BASE = "http://127.0.0.1:4789";
 
 const elements = {
   settingsToggle: document.getElementById("settings-toggle"),
@@ -66,9 +66,31 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+async function syncContextToStealthHUD() {
+  try {
+    const settings = await PitchPilotExtension.loadSettings();
+    const activeOrigin = (settings.apiOrigin || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
+    const selectedDocIds = Array.from(elements.documentSelect?.selectedOptions || []).map((o) => o.value);
+
+    await fetch(`${STEALTH_BRIDGE_BASE}/sync-context`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        apiOrigin: activeOrigin,
+        apiToken: settings.apiToken || "",
+        mode: currentSession.type,
+        contextText: elements.jobDescription?.value || "",
+        documentIds: selectedDocIds,
+      }),
+    });
+  } catch {
+    // Stealth HUD not currently open
+  }
+}
+
 async function pushToStealthHUD(questionText, renderedHtml) {
   try {
-    await fetch(STEALTH_HUD_URL, {
+    await fetch(`${STEALTH_BRIDGE_BASE}/push-prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -77,7 +99,7 @@ async function pushToStealthHUD(questionText, renderedHtml) {
       }),
     });
   } catch {
-    // Stealth desktop HUD is not running; extension popup still renders normally
+    // Stealth HUD not currently open
   }
 }
 
@@ -170,6 +192,7 @@ async function loadPopup() {
             .map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.title)} (${escapeHtml(d.docType)})</option>`)
             .join("");
         }
+        await syncContextToStealthHUD();
       } catch (err) {
         console.warn("Context fetch warning:", err);
         if (elements.creditBadge) elements.creditBadge.textContent = "Token issue";
@@ -208,6 +231,7 @@ elements.saveSettings?.addEventListener("click", async () => {
     setPanelVisible(elements.settingsPanel, false);
     elements.settingsToggle?.setAttribute("aria-expanded", "false");
     await loadPopup();
+    await syncContextToStealthHUD();
   } catch (e) {
     showSettingsMessage(e.message, "error");
   }
@@ -230,6 +254,7 @@ elements.stepItems.forEach((item) => {
     if (step === "context" || step === "preferences") {
       navigateStep("context");
     } else if (step === "copilot") {
+      syncContextToStealthHUD();
       navigateStep("copilot");
     }
   });
@@ -240,6 +265,7 @@ elements.sessionTypeTabs.forEach((btn) =>
     elements.sessionTypeTabs.forEach((t) => t.classList.remove("active"));
     e.currentTarget.classList.add("active");
     currentSession.type = e.currentTarget.dataset.sessionType;
+    syncContextToStealthHUD();
   })
 );
 
@@ -253,6 +279,7 @@ elements.importTab?.addEventListener("click", async () => {
     });
     if (results?.[0]?.result) {
       elements.jobDescription.value = results[0].result;
+      await syncContextToStealthHUD();
     }
   } catch (err) {
     console.error("Tab import failed:", err);
@@ -260,8 +287,10 @@ elements.importTab?.addEventListener("click", async () => {
   }
 });
 
-elements.startSession?.addEventListener("click", () => {
+elements.startSession?.addEventListener("click", async () => {
+  await syncContextToStealthHUD();
   navigateStep("copilot");
+  setLiveStatus("Synced to Stealth HUD! Close this popup & use HUD.");
 });
 
 elements.backToSetup?.addEventListener("click", () => {
@@ -342,28 +371,10 @@ elements.questionInput?.addEventListener("keydown", (e) => {
   }
 });
 
-async function ensureMicPermission() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    return true;
-  }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((t) => t.stop());
-    return true;
-  } catch (err) {
-    console.warn("Microphone permission needed:", err);
-    setLiveStatus("Opening tab to grant mic permission…");
-    if (chrome.tabs && chrome.tabs.create) {
-      chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?grantMic=1") });
-    }
-    return false;
-  }
-}
-
-async function toggleListening() {
+function toggleListening() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    setLiveStatus("Speech recognition not supported in this browser.");
+    setLiveStatus("Use Start Listening inside the Stealth HUD window.");
     return;
   }
 
@@ -379,10 +390,6 @@ async function toggleListening() {
     return;
   }
 
-  setLiveStatus("Requesting microphone access…");
-  const permitted = await ensureMicPermission();
-  if (!permitted) return;
-
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
@@ -391,7 +398,7 @@ async function toggleListening() {
   recognition.onstart = () => {
     isListening = true;
     if (elements.listenToggle) elements.listenToggle.textContent = "⏹ Stop Listening";
-    setLiveStatus("Listening for meeting speech…");
+    setLiveStatus("Listening… (Use Stealth HUD so closing popup won't stop)");
   };
 
   recognition.onresult = (event) => {
@@ -414,16 +421,8 @@ async function toggleListening() {
   };
 
   recognition.onerror = (event) => {
-    console.error("Speech recognition error:", event.error);
-    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-      isListening = false;
-      if (elements.listenToggle) elements.listenToggle.textContent = "🎤 Start Listening";
-      setLiveStatus("Mic blocked — opening permission tab…");
-      if (chrome.tabs && chrome.tabs.create) {
-        chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?grantMic=1") });
-      }
-    } else if (event.error !== "no-speech") {
-      setLiveStatus(`Mic error: ${event.error}`);
+    if (event.error !== "no-speech") {
+      setLiveStatus(`Use Stealth HUD mic (${event.error})`);
     }
   };
 
@@ -431,17 +430,14 @@ async function toggleListening() {
     if (isListening) {
       try {
         recognition.start();
-      } catch (err) {
-        console.error("Restart recognition error:", err);
-      }
+      } catch {}
     }
   };
 
   try {
     recognition.start();
-  } catch (err) {
-    console.error("Start recognition error:", err);
-    setLiveStatus("Failed to start speech recognition.");
+  } catch {
+    setLiveStatus("Use Start Listening inside the Stealth HUD window.");
   }
 }
 
@@ -466,7 +462,6 @@ elements.solveScreen?.addEventListener("click", async () => {
     await triggerAiQueryWithScreenshot("Analyze the shared screen code or meeting question.", imageBase64);
   } catch (err) {
     console.error("Screen capture failed:", err);
-    alert("Screen capture was cancelled or failed.");
   }
 });
 
@@ -521,6 +516,7 @@ elements.connectAccount?.addEventListener("click", async () => {
     await PitchPilotExtension.connectAccount();
     setPanelVisible(elements.settingsPanel, false);
     await loadPopup();
+    await syncContextToStealthHUD();
     showSettingsMessage("Connected successfully.", "success");
   } catch (e) {
     showSettingsMessage(e.message, "error");
@@ -531,12 +527,3 @@ setPanelVisible(elements.settingsPanel, false);
 navigateStep("context");
 loadPopup();
 updateStealthUI();
-
-if (new URLSearchParams(window.location.search).get("grantMic") === "1") {
-  navigateStep("copilot");
-  ensureMicPermission().then((ok) => {
-    if (ok) {
-      setLiveStatus("Mic permission granted! You can close this tab or click Start Listening.");
-    }
-  });
-}

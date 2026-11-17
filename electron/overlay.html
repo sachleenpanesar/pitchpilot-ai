@@ -1,18 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      padding: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: rgba(15, 23, 42, 0.88);
+      color: #f8fafc;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      -webkit-app-region: drag;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      color: #38bdf8;
+      font-weight: 700;
+    }
+    .controls {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    button {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    button.primary { background: #2563eb; border-color: #3b82f6; }
+    button.listening { background: #dc2626; border-color: #ef4444; }
+    input {
+      flex: 1;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 6px;
+      color: #fff;
+      padding: 6px 8px;
+      font-size: 12px;
+      min-width: 0;
+    }
+    .status { font-size: 11px; color: #94a3b8; margin-bottom: 6px; }
+    .answer {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      padding-right: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>PitchPilot Stealth HUD (Invisible to Teams)</span>
+    <span id="badge">Ctrl+Shift+H Hide</span>
+  </div>
+
+  <div class="controls">
+    <button id="listenBtn">🎤 Start Listening</button>
+    <input id="promptInput" placeholder="Heard question or type prompt..." />
+    <button id="askBtn" class="primary">Ask AI</button>
+  </div>
+
+  <div class="status" id="statusText">Ready — Sync JD & CV from Chrome Add-in or ask directly.</div>
+  <div class="answer" id="answerBox">AI responses tailored to your Job Description and CV will appear here.</div>
+
   <script>
-    window.stealthAPI.onNewPrompt((data) => {
-      if (data.question) {
-        document.getElementById('questionBox').textContent = 'Q: ' + data.question;
-      }
-      if (data.html) {
-        document.getElementById('answerBox').innerHTML = data.html;
-      } else if (data.answer) {
-        document.getElementById('answerBox').textContent = data.answer;
-      }
+    let context = JSON.parse(localStorage.getItem('pp_stealth_ctx') || '{}');
+    let isListening = false;
+    let recognition = null;
+    let silenceTimer = null;
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    if (context.apiToken) {
+      document.getElementById('statusText').textContent = 'JD & CV Context Synced ✅';
+    }
+
+    window.stealthAPI.onSyncContext((data) => {
+      context = { ...context, ...data };
+      localStorage.setItem('pp_stealth_ctx', JSON.stringify(context));
+      document.getElementById('statusText').textContent = 'JD & CV Context Synced from Add-in ✅';
     });
 
-    window.stealthAPI.onClickThrough((isLocked) => {
-      document.getElementById('modeBadge').textContent = isLocked
-        ? 'Click-Through ON (Ctrl+Shift+T)'
-        : 'Active (Ctrl+Shift+H to Hide)';
+    window.stealthAPI.onNewPrompt((data) => {
+      if (data.question) document.getElementById('promptInput').value = data.question;
+      if (data.html) document.getElementById('answerBox').innerHTML = data.html;
+    });
+
+    window.stealthAPI.onClickThrough((locked) => {
+      document.getElementById('badge').textContent = locked ? 'Locked (Ctrl+Shift+T)' : 'Ctrl+Shift+H Hide';
+    });
+
+    async function askCopilot(question) {
+      if (!question.trim()) return;
+      const answerBox = document.getElementById('answerBox');
+      answerBox.innerHTML = '<em>Generating tailored answer…</em>';
+
+      const origin = (context.apiOrigin || 'https://pitchpilot-ai-ruddy.vercel.app').replace(/\/+$/, '');
+      try {
+        const res = await fetch(`${origin}/api/copilot/answer`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(context.apiToken ? { Authorization: `Bearer ${context.apiToken}` } : {}),
+          },
+          body: JSON.stringify({
+            question,
+            mode: context.mode || 'INTERVIEW',
+            contextText: context.contextText || '',
+            documentIds: context.documentIds || [],
+          }),
+        });
+        const json = await res.json();
+        const d = json.data || json;
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+        let html = `<div style="color:#38bdf8;font-weight:700;margin-bottom:6px;">💡 Summary</div><div style="margin-bottom:10px;">${escapeHtml(d.summary || 'No response.')}</div>`;
+        if (d.starAnswer && (d.starAnswer.situation || d.starAnswer.task)) {
+          html += `<div style="color:#4ade80;font-weight:700;margin-bottom:4px;">⭐ STAR Answer</div>
+          <ul style="margin-left:16px;margin-bottom:10px;">
+            <li><b>S:</b> ${escapeHtml(d.starAnswer.situation)}</li>
+            <li><b>T:</b> ${escapeHtml(d.starAnswer.task)}</li>
+            <li><b>A:</b> ${escapeHtml(d.starAnswer.action)}</li>
+            <li><b>R:</b> ${escapeHtml(d.starAnswer.result)}</li>
+          </ul>`;
+        }
+        if (d.codingSolution?.code) {
+          html += `<pre style="background:#020617;padding:8px;border-radius:6px;overflow-x:auto;font-size:11px;margin-bottom:8px;"><code>${escapeHtml(d.codingSolution.code)}</code></pre>`;
+        }
+        if (d.suggestedPhrases && d.suggestedPhrases.length > 0) {
+          html += `<div style="font-weight:700;margin-bottom:4px;">💬 Speaking Points</div>
+          <ul style="margin-left:16px;font-size:12px;">
+            ${d.suggestedPhrases.map((p) => `<li>"${escapeHtml(p)}"</li>`).join('')}
+          </ul>`;
+        }
+        answerBox.innerHTML = html;
+      } catch (err) {
+        answerBox.innerHTML = `<span style="color:#f87171;">Error: ${escapeHtml(err.message)}</span>`;
+      }
+    }
+
+    document.getElementById('askBtn').addEventListener('click', () => {
+      askCopilot(document.getElementById('promptInput').value);
+    });
+
+    document.getElementById('promptInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') askCopilot(document.getElementById('promptInput').value);
+    });
+
+    document.getElementById('listenBtn').addEventListener('click', () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        document.getElementById('statusText').textContent = 'SpeechRecognition unavailable.';
+        return;
+      }
+      const btn = document.getElementById('listenBtn');
+      if (isListening) {
+        isListening = false;
+        try { recognition?.stop(); } catch {}
+        btn.textContent = '🎤 Start Listening';
+        btn.classList.remove('listening');
+        document.getElementById('statusText').textContent = 'Paused.';
+        return;
+      }
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => {
+        isListening = true;
+        btn.textContent = '⏹ Stop';
+        btn.classList.add('listening');
+        document.getElementById('statusText').textContent = 'Listening continuously (never resets)…';
+      };
+      recognition.onresult = (e) => {
+        let text = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) text += e.results[i][0].transcript;
+        document.getElementById('promptInput').value = text.trim();
+        if (e.results[e.results.length - 1].isFinal) {
+          clearTimeout(silenceTimer);
+          silenceTimer = setTimeout(() => askCopilot(document.getElementById('promptInput').value), 1500);
+        }
+      };
+      recognition.onerror = (e) => {
+        if (e.error !== 'no-speech') {
+          document.getElementById('statusText').textContent = `Mic error: ${e.error}`;
+        }
+      };
+      recognition.onend = () => { if (isListening) { try { recognition.start(); } catch {} } };
+      recognition.start();
     });
   </script>
+</body>
+</html>
