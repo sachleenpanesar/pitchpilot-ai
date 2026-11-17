@@ -441,6 +441,8 @@ window.addEventListener("DOMContentLoaded", () => {
   let scriptProcessor = null;
   let pcmChunks = [];
   let pcmSampleCount = 0;
+  let preSpeechChunks = [];
+  let preSpeechSampleCount = 0;
   let speechActive = false;
   let speechStartTime = 0;
   let lastSpeechTime = 0;
@@ -452,10 +454,24 @@ window.addEventListener("DOMContentLoaded", () => {
   let transcriptionQueue = Promise.resolve();
 
   const TARGET_SAMPLE_RATE = 8000;
-  const PAUSE_FLUSH_MS = 650;
+  const PAUSE_FLUSH_MS = 1100;
   const HARD_MAX_PHRASE_MS = 2800;
   const MAX_PHRASE_SAMPLES = Math.floor(TARGET_SAMPLE_RATE * HARD_MAX_PHRASE_MS / 1000);
+  const PRE_SPEECH_SAMPLES = Math.floor(TARGET_SAMPLE_RATE * 250 / 1000);
   const MIN_SPEECH_MS = 350;
+  const SINGLE_WORD_FILLERS = new Set([
+    "audio", "hello", "hi", "okay", "yes", "no", "um", "uh", "you", "the"
+  ]);
+
+  function isUsableTranscript(text) {
+    const clean = (text || "").trim();
+    if (!clean || /^\d{1,2}:\d{2}$/.test(clean)) return false;
+
+    const words = clean.split(/\s+/);
+    const singleWord = clean.toLowerCase().replace(/^[^a-z]+|[^a-z]+$/g, "");
+    if (words.length === 1 && SINGLE_WORD_FILLERS.has(singleWord)) return false;
+    return words.length >= 3 || /\?$/.test(clean);
+  }
 
   function endsWithDanglingConnector(text) {
     if (/[?]$/.test(text.trim())) return false;
@@ -463,9 +479,10 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!clean) return false;
     const words = clean.split(/\s+/);
     const trailingConnectors = [
-      "and", "or", "but", "of", "for", "with", "between", "about", "in", "on", "to", "the", "a"
+      "your", "my", "the", "a", "an", "and", "or", "of", "about",
+      "for", "with", "to", "in", "between"
     ];
-    return trailingConnectors.includes(words[words.length - 1]);
+    return trailingConnectors.includes(words[words.length - 1]) || clean.endsWith("tell me");
   }
 
   function joinSegments(segments) {
@@ -491,7 +508,7 @@ window.addEventListener("DOMContentLoaded", () => {
     heardText.textContent = combined;
     questionInput.value = combined;
 
-    const waitMs = endsWithDanglingConnector(combined) ? 1400 : 0;
+    const waitMs = endsWithDanglingConnector(combined) ? 1800 : 0;
     if (waitMs > 0) setStatus(`Stitching (${waitMs}ms)…`, "listening");
 
     stitchTimer = setTimeout(() => {
@@ -581,6 +598,31 @@ window.addEventListener("DOMContentLoaded", () => {
     return samples.subarray(firstSpeechSample);
   }
 
+  function bufferPreSpeechSamples(samples) {
+    preSpeechChunks.push(samples);
+    preSpeechSampleCount += samples.length;
+
+    while (preSpeechSampleCount > PRE_SPEECH_SAMPLES) {
+      const excess = preSpeechSampleCount - PRE_SPEECH_SAMPLES;
+      const firstChunk = preSpeechChunks[0];
+      if (excess >= firstChunk.length) {
+        preSpeechChunks.shift();
+        preSpeechSampleCount -= firstChunk.length;
+      } else {
+        preSpeechChunks[0] = firstChunk.subarray(excess);
+        preSpeechSampleCount -= excess;
+      }
+    }
+  }
+
+  function appendPreSpeechBuffer() {
+    for (const chunk of preSpeechChunks) {
+      appendAudioSamples(chunk);
+    }
+    preSpeechChunks = [];
+    preSpeechSampleCount = 0;
+  }
+
   async function flushAudioBuffer(reason) {
     if (pcmSampleCount === 0) return;
     const totalSamples = pcmSampleCount;
@@ -649,7 +691,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const transcript = (data.text || data.transcript || "").trim();
         const elapsed = Math.round(performance.now() - t0);
 
-        if (transcript && transcript.length > 1) {
+        if (isUsableTranscript(transcript)) {
           accumulatedSegments.push(transcript);
           setStatus(`Heard (${elapsed}ms)`, "listening");
           scheduleQuestionDispatch();
@@ -742,12 +784,19 @@ window.addEventListener("DOMContentLoaded", () => {
             setStatus("Speech detected…", "listening");
           }
           lastSpeechTime = now;
-          appendAudioSamples(isSpeechOnset ? trimLeadingSilence(downsampled, threshold) : downsampled);
+          if (isSpeechOnset) {
+            appendPreSpeechBuffer();
+            appendAudioSamples(trimLeadingSilence(downsampled, threshold));
+          } else {
+            appendAudioSamples(downsampled);
+          }
         } else if (speechActive) {
           appendAudioSamples(downsampled);
           if (now - lastSpeechTime >= PAUSE_FLUSH_MS) {
             flushAudioBuffer("pause");
           }
+        } else {
+          bufferPreSpeechSamples(downsampled);
         }
       };
 
@@ -770,6 +819,8 @@ window.addEventListener("DOMContentLoaded", () => {
     speechActive = false;
     pcmChunks = [];
     pcmSampleCount = 0;
+    preSpeechChunks = [];
+    preSpeechSampleCount = 0;
     if (scriptProcessor) {
       try { scriptProcessor.disconnect(); } catch (e) {}
       scriptProcessor = null;
@@ -799,6 +850,10 @@ window.addEventListener("DOMContentLoaded", () => {
   async function askCopilot(question) {
     const cleanQ = (question || "").trim();
     if (!cleanQ) return;
+    if (!isUsableTranscript(cleanQ)) {
+      setStatus("Question is too short or unclear", "idle");
+      return;
+    }
 
     const apiBase = normalizeUrl(sessionContext.apiBase || apiBaseInput.value);
     if (!apiBase) {

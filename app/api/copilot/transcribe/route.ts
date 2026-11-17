@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
           data: base64Audio,
         },
       },
-      "Transcribe the spoken English words verbatim. Output ONLY the exact spoken words with punctuation. If there is no clear human speech, output an empty string.",
+      "Transcribe ONLY clear human speech in English. If the audio is silent, background noise, music, or unclear, return an empty string. Never output labels like 'audio', timestamps like '00:00', or sound descriptions.",
     ]);
 
     const text = result.response.text().trim();
