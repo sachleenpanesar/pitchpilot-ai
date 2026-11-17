@@ -23,7 +23,7 @@
     const responseType = request.type === "PITCHPILOT_DETECT"
       ? "PITCHPILOT_EXTENSION_PING"
       : request.type === "OPEN_PITCHPILOT_EXTENSION"
-        ? "PITCHPILOT_OPEN_SIDE_PANEL"
+        ? "PITCHPILOT_OPEN_WINDOW"
         : "";
     if (!responseType) return;
 

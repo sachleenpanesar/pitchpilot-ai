@@ -64,7 +64,7 @@ export default function LaunchCopilotButton() {
 
       const result = await requestExtension("OPEN_PITCHPILOT_EXTENSION", 2500)
       if (!result?.opened) {
-        setMessage(result?.error || "The extension could not open its side panel. Open the PitchPilot extension from Chrome’s toolbar.")
+        setMessage(result?.error || "The extension could not open its window. Open the PitchPilot extension from Chrome’s toolbar.")
       }
     } finally {
       setBusy(false)

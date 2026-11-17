@@ -271,12 +271,18 @@
     return payload;
   }
 
-  async function openFullSidePanel() {
+  async function openCopilotWindow() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (typeof tab?.windowId !== "number") {
+    if (typeof tab?.id !== "number") {
       throw new Error("Could not find the active Chrome window.");
     }
-    await chrome.sidePanel.open({ windowId: tab.windowId });
+    const response = await chrome.runtime.sendMessage({
+      type: "PITCHPILOT_OPEN_WINDOW",
+      tabId: tab.id,
+    });
+    if (!response?.opened) {
+      throw new Error(response?.error || "Chrome could not open the PitchPilot window.");
+    }
   }
 
   async function openAppPage(path) {
@@ -291,7 +297,7 @@
     clearToken,
     connectAccount,
     requestJson,
-    openFullSidePanel,
+    openCopilotWindow,
     openAppPage,
     normalizeApiOrigin,
   };

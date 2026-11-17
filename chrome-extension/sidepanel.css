@@ -24,6 +24,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 [hidden] { display: none !important; }
 .shell { max-width: 720px; margin: 0 auto; padding: 18px 16px 28px; }
+.mic-grant-view { display: grid; min-height: 100vh; place-items: center; padding: 16px; }
+.mic-grant-panel { width: min(420px, 100%); margin: 0; }
+.mic-grant-panel h1 { margin: 0; color: #0f172a; font-size: 19px; letter-spacing: -.025em; }
+.mic-grant-panel .hint { margin-top: 9px; font-size: 11px; }
+.mic-permission-action { margin-top: 8px; }
 .topbar, .section-head, .live-heading, .step-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .topbar { margin-bottom: 15px; }
 .brand { display: flex; align-items: center; gap: 10px; }
@@ -259,4 +264,142 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 360px) {
   .choice-row, .live-actions { grid-template-columns: 1fr; }
   .step-marker { gap: 4px; padding-right: 4px; padding-left: 4px; }
+}
+
+html, body { height: 100%; }
+body { overflow: hidden; background: #f8fafc; }
+.shell {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  grid-template-rows: 66px minmax(0, 1fr) 25px;
+  padding: 0;
+  overflow: hidden;
+}
+.topbar {
+  min-width: 0;
+  min-height: 66px;
+  margin: 0;
+  padding: 0 22px;
+  color: #f8fafc;
+  background: #111827;
+}
+.topbar .brand-mark { color: #052e25; background: #6ee7b7; }
+.topbar .eyebrow { color: #a7f3d0; }
+.topbar .brand h1 { color: #f8fafc; font-size: 15px; }
+.top-actions { gap: 14px; }
+.top-actions .top-link { color: #e2e8f0; font-size: 11px; }
+.top-actions .top-link:hover { color: white; }
+.top-actions .top-link-upgrade {
+  padding: 8px 13px;
+  border-radius: 9px;
+  color: #052e25;
+  background: #6ee7b7;
+  text-decoration: none;
+}
+.top-actions .top-link-upgrade:hover { color: #052e25; background: #a7f3d0; }
+.top-actions .credit-badge { max-width: 140px; }
+.topbar .icon-button { border-color: #475569; color: #f8fafc; background: #1f2937; }
+.topbar .icon-button:hover { border-color: #6ee7b7; color: #a7f3d0; }
+.workspace {
+  min-height: 0;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 0;
+}
+.session-sidebar {
+  position: static;
+  min-height: 0;
+  padding: 26px 18px 18px;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0;
+  background: #fff;
+}
+.session-sidebar > .sidebar-label { color: #64748b; font-size: 9px; }
+.session-sidebar .stepper { gap: 8px; margin-top: 22px; }
+.session-sidebar .step-marker { padding: 10px 9px; color: #475569; font-size: 12px; }
+.session-sidebar .step-marker.active { color: #065f46; }
+.session-sidebar .step-line { height: 16px; }
+.account-footer {
+  display: grid;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+.account-footer strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 11px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.content-column {
+  min-height: 0;
+  padding: 20px 24px 24px;
+  overflow: auto;
+  background: #f8fafc;
+}
+.content-column > .status { margin-bottom: 16px; }
+.content-column .view { width: 100%; max-width: 780px; margin: 0 auto; }
+.content-column .panel { padding: 22px; }
+.content-column .section-head h2, .content-column .live-heading h2 { font-size: 20px; }
+.content-column .session-choice legend,
+.content-column .field,
+.content-column .toggle-row strong { font-size: 12px; }
+.content-column .choice-button { min-height: 42px; font-size: 12px; }
+.content-column .field input,
+.content-column .field textarea,
+.content-column .field select { min-height: 42px; font-size: 13px; }
+.content-column .field textarea { min-height: 132px; }
+.content-column .button { font-size: 12px; }
+.content-column .button-wide { min-height: 46px; }
+.content-column .step-actions { margin-top: 22px; }
+.content-column .step-actions .button-primary { min-height: 46px; }
+.live-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.live-actions .button { min-height: 44px; font-size: 11px; }
+.live-auto-answer {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: white;
+}
+.screen-scan-status { margin: 6px 2px 10px; font-size: 10px; }
+.screen-preview-panel { margin-top: 10px; }
+.screen-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.screen-preview-heading strong, .screen-preview-heading span { display: block; }
+.screen-preview-heading strong { color: #0f172a; font-size: 12px; }
+.screen-preview-heading span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.screen-preview-heading .button { width: auto; margin: 0; }
+#screen-preview { display: block; width: min(100%, 520px); max-height: 220px; margin: 0 auto; border-radius: 9px; background: #0f172a; object-fit: contain; }
+.footer {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 18px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+@media (max-width: 700px) {
+  html, body { height: auto; overflow: auto; }
+  .shell { display: block; height: auto; min-height: 100vh; overflow: visible; }
+  .topbar { flex-wrap: wrap; padding: 12px; }
+  .top-actions { flex-wrap: wrap; justify-content: flex-start; }
+  .workspace { display: flex; flex-direction: column; }
+  .session-sidebar { min-height: 0; padding: 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .session-sidebar .stepper { flex-direction: row; align-items: center; margin: 8px 0; }
+  .session-sidebar .step-line { width: auto; height: 1px; min-width: 14px; flex: 1; margin: 0; }
+  .account-footer { display: block; margin-top: 8px; padding-top: 8px; }
+  .account-footer .sidebar-label { display: block; }
+  .account-footer strong { display: block; margin-top: 4px; }
+  .content-column { overflow: visible; padding: 14px; }
+  .content-column .panel { padding: 14px; }
+  .live-actions { grid-template-columns: 1fr; }
+  .footer { min-height: 25px; }
 }

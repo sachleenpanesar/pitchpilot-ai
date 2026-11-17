@@ -113,10 +113,10 @@ elements.saveSettings.addEventListener("click", () => void savePopupSettings());
 elements.openPanel.addEventListener("click", async () => {
   elements.openPanel.disabled = true;
   try {
-    await PitchPilotExtension.openFullSidePanel();
+    await PitchPilotExtension.openCopilotWindow();
     window.close();
   } catch (error) {
-    showSettingsMessage(error instanceof Error ? error.message : "Could not open the side panel.", "error");
+    showSettingsMessage(error instanceof Error ? error.message : "Could not open the PitchPilot window.", "error");
     elements.openPanel.disabled = false;
   }
 });

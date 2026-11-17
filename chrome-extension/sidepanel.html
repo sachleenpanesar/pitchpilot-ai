@@ -4,10 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <title>PitchPilot AI Side Panel</title>
+    <title>PitchPilot AI — Prepare your session</title>
     <link rel="stylesheet" href="sidepanel.css">
   </head>
   <body>
+    <section id="mic-grant-view" class="mic-grant-view" hidden aria-labelledby="mic-grant-heading">
+      <div class="panel mic-grant-panel">
+        <p class="eyebrow">MICROPHONE PERMISSION</p>
+        <h1 id="mic-grant-heading">Enable your microphone</h1>
+        <p id="mic-grant-status" class="hint" role="status" aria-live="polite">Allow microphone access in Chrome's permission prompt.</p>
+        <button id="mic-grant-action" class="button button-secondary button-wide" type="button" hidden>Close this tab</button>
+      </div>
+    </section>
     <main class="shell">
       <header class="topbar">
         <div class="brand">
@@ -18,7 +26,6 @@
           </div>
         </div>
         <nav class="top-actions" aria-label="Account actions">
-          <span id="signed-user" class="account-badge" title="Not connected">Not connected</span>
           <a id="support-link" class="top-link" href="#">Support</a>
           <span id="credit-badge" class="credit-badge" aria-live="polite">Connect account</span>
           <a id="upgrade-link" class="top-link top-link-upgrade" href="#">Upgrade</a>
@@ -30,12 +37,16 @@
 
       <div class="workspace">
         <aside class="session-sidebar" aria-label="Session setup steps">
-          <p class="sidebar-label">YOUR SESSION</p>
+          <p class="sidebar-label">PREPARE YOUR SESSION</p>
           <ol class="stepper" aria-label="Session setup progress">
             <li><button id="step-context-indicator" class="step-marker active" type="button" aria-current="step"><span>1</span><strong>Context</strong></button></li>
             <li class="step-line" aria-hidden="true"><span>→</span></li>
             <li><button id="step-preferences-indicator" class="step-marker" type="button"><span>2</span><strong>Preferences</strong></button></li>
           </ol>
+          <div class="account-footer">
+            <span class="sidebar-label">SIGNED IN AS</span>
+            <strong id="signed-user" title="Not connected">Not connected</strong>
+          </div>
         </aside>
         <div class="content-column">
       <div id="status" class="status" role="status" aria-live="polite" data-state="idle">
@@ -46,6 +57,7 @@
         </div>
       </div>
       <p id="app-message" class="app-message" role="alert" hidden></p>
+      <button id="enable-microphone" class="button button-secondary button-wide mic-permission-action" type="button" hidden>Enable Microphone</button>
 
       <section id="setup-view" class="view">
         <section id="context-step" class="panel wizard-step" aria-labelledby="context-heading">
@@ -141,8 +153,27 @@
         </div>
         <div class="live-actions">
           <button id="listen-button" class="button button-primary" type="button">Start listening</button>
-          <button id="solve-button" class="button button-secondary" type="button">1-Click Solve Current Tab</button>
+          <button id="share-screen-button" class="button button-secondary" type="button">Share Screen</button>
+          <button id="solve-button" class="button button-secondary" type="button">Solve Screen Now</button>
         </div>
+        <label class="toggle-row live-auto-answer" for="live-auto-answer">
+          <span>
+            <strong>Auto-Answer</strong>
+            <span class="hint">Automatically answer speech and scan the screen every 15 seconds.</span>
+          </span>
+          <input id="live-auto-answer" type="checkbox">
+        </label>
+        <p id="screen-scan-status" class="hint screen-scan-status" role="status" aria-live="polite">Scan Screen for Code / Questions is off.</p>
+        <section id="screen-preview-panel" class="panel screen-preview-panel" aria-label="Shared screen preview" hidden>
+          <div class="screen-preview-heading">
+            <div>
+              <strong>Screen share preview</strong>
+              <span id="screen-share-status">Sharing is active.</span>
+            </div>
+            <button id="stop-screen-share" class="button button-quiet" type="button">Stop sharing</button>
+          </div>
+          <video id="screen-preview" autoplay muted playsinline></video>
+        </section>
 
         <section class="panel question-panel" aria-labelledby="question-heading">
           <h3 id="question-heading" class="section-title">Ask or dictate</h3>

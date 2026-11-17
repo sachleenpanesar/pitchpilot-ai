@@ -2,6 +2,8 @@
 
 const SETTINGS_KEY = "pitchpilotSettings";
 const SILENCE_DELAY_MS = 1500;
+const SCREEN_SCAN_INTERVAL_MS = 15_000;
+const SCREEN_SCAN_QUESTION = "Inspect this screen frame for a visible programming or coding challenge, or an interview question. If a clear question is visible, solve it without inventing missing details. For coding tasks, provide the approach, optimal code in the language shown or requested, and time/space Big-O. For interview questions, provide a concise structured answer. If no question is visible, state that no question was detected.";
 
 const elements = {
   settingsToggle: document.getElementById("settings-toggle"),
@@ -18,6 +20,11 @@ const elements = {
   upgradeLink: document.getElementById("upgrade-link"),
   creditBadge: document.getElementById("credit-badge"),
   signedUser: document.getElementById("signed-user"),
+  shell: document.querySelector(".shell"),
+  enableMicrophone: document.getElementById("enable-microphone"),
+  micGrantView: document.getElementById("mic-grant-view"),
+  micGrantStatus: document.getElementById("mic-grant-status"),
+  micGrantAction: document.getElementById("mic-grant-action"),
   status: document.getElementById("status"),
   statusTitle: document.getElementById("status-title"),
   statusDetail: document.getElementById("status-detail"),
@@ -45,6 +52,13 @@ const elements = {
   liveSessionType: document.getElementById("live-session-type"),
   elapsedTime: document.getElementById("elapsed-time"),
   listenButton: document.getElementById("listen-button"),
+  liveAutoAnswer: document.getElementById("live-auto-answer"),
+  shareScreenButton: document.getElementById("share-screen-button"),
+  screenPreviewPanel: document.getElementById("screen-preview-panel"),
+  screenPreview: document.getElementById("screen-preview"),
+  screenShareStatus: document.getElementById("screen-share-status"),
+  stopScreenShare: document.getElementById("stop-screen-share"),
+  screenScanStatus: document.getElementById("screen-scan-status"),
   solveButton: document.getElementById("solve-button"),
   question: document.getElementById("question"),
   askButton: document.getElementById("ask-button"),
@@ -71,6 +85,12 @@ const state = {
   restartTimer: null,
   requestInFlight: false,
   requestQueue: [],
+  microphoneGranted: false,
+  targetTabId: null,
+  displayStream: null,
+  screenScanTimer: null,
+  screenScanInFlight: false,
+  lastScannedFrame: "",
 };
 
 function setStatus(title, detail, status = "idle") {
@@ -83,6 +103,66 @@ function showMessage(message, kind = "error") {
   elements.appMessage.textContent = message || "";
   elements.appMessage.hidden = !message;
   elements.appMessage.dataset.kind = kind;
+}
+
+function isMicrophonePermissionDenied(error) {
+  return error instanceof Error
+    && (error.name === "NotAllowedError" || error.name === "PermissionDeniedError");
+}
+
+function showMicrophonePermissionHelp(message) {
+  showMessage(message);
+  elements.enableMicrophone.hidden = false;
+}
+
+async function openMicrophonePermissionTab() {
+  elements.enableMicrophone.disabled = true;
+  try {
+    await chrome.tabs.create({
+      url: chrome.runtime.getURL("sidepanel.html?grantMic=1"),
+      active: true,
+    });
+  } catch (error) {
+    showMessage(error instanceof Error ? error.message : "Could not open the microphone permission page.");
+  } finally {
+    elements.enableMicrophone.disabled = false;
+  }
+}
+
+async function requestMicrophoneGrant() {
+  elements.micGrantAction.hidden = true;
+  elements.micGrantStatus.textContent = "Allow microphone access in Chrome's permission prompt.";
+  try {
+    const microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+    microphone.getTracks().forEach((track) => track.stop());
+    state.microphoneGranted = true;
+    elements.micGrantStatus.textContent = "Microphone enabled. Return to the side panel to start listening.";
+    elements.micGrantAction.textContent = "Close this tab";
+  } catch (error) {
+    state.microphoneGranted = false;
+    elements.micGrantStatus.textContent = isMicrophonePermissionDenied(error)
+      ? "Microphone access was not granted. Allow it in Chrome and choose Try again."
+      : error instanceof Error
+        ? error.message
+        : "Could not access a microphone. Connect one and try again.";
+    elements.micGrantAction.textContent = "Try again";
+  }
+  elements.micGrantAction.hidden = false;
+}
+
+async function closeMicrophonePermissionTab() {
+  try {
+    const tab = await chrome.tabs.getCurrent();
+    if (typeof tab?.id === "number") {
+      await chrome.tabs.remove(tab.id);
+      return;
+    }
+    window.close();
+  } catch (error) {
+    elements.micGrantStatus.textContent = error instanceof Error
+      ? `Microphone is enabled. You can close this tab and return to the side panel. (${error.message})`
+      : "Microphone is enabled. You can close this tab and return to the side panel.";
+  }
 }
 
 function showSettingsMessage(message, kind = "") {
@@ -172,7 +252,7 @@ async function loadDocuments() {
     elements.creditBadge.textContent = Number.isFinite(credits)
       ? `${credits.toLocaleString()} credits`
       : `${result.user?.plan || "Connected"}`;
-    elements.signedUser.textContent = result.user?.name || result.user?.email || "Account connected";
+    elements.signedUser.textContent = result.user?.email || result.user?.name || "Account connected";
     elements.signedUser.title = result.user?.email || "";
     populateSelect(
       elements.resumeSelect,
@@ -283,12 +363,17 @@ async function startSession() {
     });
     elements.setupView.hidden = true;
     elements.liveView.hidden = false;
+    elements.liveAutoAnswer.checked = elements.autoAnswer.checked;
     elements.liveSessionType.textContent = `${state.sessionType === "INTERVIEW" ? "INTERVIEW" : "REGULAR MEETING"} SESSION`;
     state.sessionStartedAt = Date.now();
     updateElapsedTime();
     state.timer = setInterval(updateElapsedTime, 1000);
-    setStatus("Session ready", "Ask a question, dictate, or solve the visible tab.", "ready");
+    setStatus("Session ready", "Share a screen, dictate a question, or solve the visible challenge.", "ready");
     elements.results.replaceChildren();
+    if (elements.liveAutoAnswer.checked) {
+      startScreenScan();
+      void startListening();
+    }
   } catch (error) {
     showMessage(error instanceof Error ? error.message : "Could not start the session.");
   } finally {
@@ -417,21 +502,21 @@ async function askCopilot(question, imageBase64) {
   const trimmedQuestion = question.trim();
   if (!trimmedQuestion) {
     showMessage("Enter or dictate a question first.");
-    return;
+    return false;
   }
   if (state.requestInFlight) {
     if (state.requestQueue.length >= 5) {
       showMessage("The answer queue is full. Wait for a response before continuing.");
-      return;
+      return false;
     }
     state.requestQueue.push({ question: trimmedQuestion, imageBase64 });
     setStatus("Answer queued", `${state.requestQueue.length} question(s) waiting.`, "working");
-    return;
+    return false;
   }
 
   if (!state.settings?.apiToken) {
     showMessage("Add an extension token in Connection settings before asking for an answer.");
-    return;
+    return false;
   }
 
   state.requestInFlight = true;
@@ -473,6 +558,7 @@ async function askCopilot(question, imageBase64) {
     }
     renderResult(payload, trimmedQuestion);
     setStatus("Answer ready", "Review the spoken approach, code, and Big-O below.", "ready");
+    return true;
   } catch (error) {
     const message = error && error.name === "AbortError"
       ? "The API request timed out. Check the server and try again."
@@ -481,6 +567,7 @@ async function askCopilot(question, imageBase64) {
         : "Could not reach the configured backend.";
     showMessage(message);
     setStatus("Connection issue", message, "error");
+    return false;
   } finally {
     clearTimeout(timeout);
     state.requestInFlight = false;
@@ -491,21 +578,60 @@ async function askCopilot(question, imageBase64) {
   }
 }
 
-async function solveCurrentTab() {
+async function getCaptureTargetTab() {
+  if (typeof state.targetTabId === "number") {
+    try {
+      const target = await chrome.tabs.get(state.targetTabId);
+      if (typeof target.windowId === "number") return target;
+    } catch {
+      state.targetTabId = null;
+    }
+  }
+  const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (typeof activeTab?.windowId !== "number") {
+    throw new Error("Could not find the active tab. Open a regular webpage and try again.");
+  }
+  return activeTab;
+}
+
+async function captureScreenFrame() {
+  if (state.displayStream?.active) {
+    const video = elements.screenPreview;
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+      throw new Error("The shared screen preview is not ready yet. Wait a moment and try again.");
+    }
+    const scale = Math.min(1, 1280 / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Could not prepare a frame from the shared screen.");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.78);
+  }
+
+  const activeTab = await getCaptureTargetTab();
+  const pageUrl = activeTab.url || activeTab.pendingUrl || "";
+  const protectedPage = /^(chrome|chrome-extension|chrome-untrusted|devtools|edge|about):/i.test(pageUrl)
+    || pageUrl.startsWith("view-source:");
+  if (protectedPage) {
+    throw new Error("Chrome does not allow screenshots of internal pages such as chrome:// settings. Share your screen or open a regular webpage.");
+  }
+  return chrome.tabs.captureVisibleTab(activeTab.windowId, { format: "jpeg", quality: 78 });
+}
+
+async function solveScreenNow() {
   elements.solveButton.disabled = true;
   try {
-    setStatus("Capturing tab", "Chrome will capture the visible portion of the active tab.", "working");
-    const imageBase64 = await chrome.tabs.captureVisibleTab(undefined, { format: "png" });
-    await askCopilot(
-      "Analyze the visible page or coding problem and provide a concise approach and solution.",
-      imageBase64,
-    );
+    setStatus("Capturing screen", "Capturing the shared screen or active webpage.", "working");
+    const imageBase64 = await captureScreenFrame();
+    await askCopilot(SCREEN_SCAN_QUESTION, imageBase64);
   } catch (error) {
     const message = error instanceof Error && error.message
       ? error.message
-      : "Could not capture this tab. Try a regular web page.";
+      : "Could not capture the shared screen or active webpage.";
     showMessage(`Screenshot unavailable: ${message}`);
-    setStatus("Capture unavailable", "Chrome may block screenshots on protected or internal pages.", "error");
+    setStatus("Screen unavailable", "Share your screen or switch to a regular webpage.", "error");
   } finally {
     elements.solveButton.disabled = false;
   }
@@ -522,7 +648,7 @@ function flushSpeechDraft() {
   state.interimDraft = "";
   if (!spoken) return;
   elements.question.value = spoken;
-  if (elements.autoAnswer.checked) {
+  if (elements.liveAutoAnswer.checked) {
     void askCopilot(spoken);
   } else {
     setStatus("Speech ready", "Review the recognized question, then choose Get Answer.", "listening");
@@ -577,7 +703,7 @@ function startRecognition() {
   recognition.onerror = (event) => {
     if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
       stopListening();
-      showMessage("Microphone access was denied. Allow it in Chrome settings and try again.");
+      showMicrophonePermissionHelp("Microphone access was denied. Enable it in a browser tab, then try again.");
     } else {
       setStatus("Speech recognition issue", `Chrome reported: ${event?.error || "unknown"}.`, "error");
     }
@@ -595,23 +721,28 @@ function startRecognition() {
 }
 
 async function startListening() {
+  if (state.listening) return;
   if (!speechRecognitionConstructor()) {
     showMessage("Speech recognition is not available in this Chrome version or profile.");
     return;
   }
   elements.listenButton.disabled = true;
+  elements.enableMicrophone.hidden = true;
   try {
     const microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
     microphone.getTracks().forEach((track) => track.stop());
+    showMessage("");
     state.listening = true;
     startRecognition();
     elements.listenButton.textContent = "Stop listening";
     setStatus("Listening", "Speech is sent after 1.5 seconds of silence when Auto-Answer is on.", "listening");
   } catch (error) {
-    const message = error instanceof Error && error.name === "NotAllowedError"
-      ? "Microphone access was denied. Allow it in Chrome settings and try again."
+    const denied = isMicrophonePermissionDenied(error);
+    const message = denied
+      ? "Microphone access was denied. Enable it in a browser tab, then try listening again."
       : "Could not start speech recognition. Check microphone access and try again.";
-    showMessage(message);
+    if (denied) showMicrophonePermissionHelp(message);
+    else showMessage(message);
     setStatus("Microphone unavailable", message, "error");
   } finally {
     elements.listenButton.disabled = false;
@@ -619,12 +750,14 @@ async function startListening() {
 }
 
 function endSession() {
+  stopScreenScan();
   stopListening();
   if (state.timer) clearInterval(state.timer);
   state.timer = null;
   state.sessionStartedAt = 0;
   elements.elapsedTime.textContent = "00:00";
   elements.liveView.hidden = true;
+  stopScreenShare(false);
   elements.setupView.hidden = false;
   updateStep("context");
   setStatus("Session ended", "Update the context or prepare another session.", "idle");
@@ -687,25 +820,144 @@ async function connectAccount() {
   }
 }
 
-async function saveAutoAnswer() {
+async function saveAutoAnswer(enabled) {
   try {
     const stored = await chrome.storage.local.get(SETTINGS_KEY);
     const settings = stored[SETTINGS_KEY] || {};
-    settings.autoAnswer = elements.autoAnswer.checked;
+    settings.autoAnswer = enabled;
     await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    if (state.settings) state.settings.autoAnswer = enabled;
   } catch {
     showMessage("Could not save the Auto-Answer preference.");
   }
 }
 
+function stopScreenScan() {
+  if (state.screenScanTimer) clearInterval(state.screenScanTimer);
+  state.screenScanTimer = null;
+  state.lastScannedFrame = "";
+  elements.screenScanStatus.textContent = "Scan Screen for Code / Questions is off.";
+}
+
+function startScreenScan() {
+  stopScreenScan();
+  elements.screenScanStatus.textContent = `Scan Screen for Code / Questions runs every ${SCREEN_SCAN_INTERVAL_MS / 1000} seconds. Frames are sent to your configured backend.`;
+  void scanScreenForQuestions();
+  state.screenScanTimer = setInterval(() => void scanScreenForQuestions(), SCREEN_SCAN_INTERVAL_MS);
+}
+
+async function scanScreenForQuestions(manual = false) {
+  if (!manual && !elements.liveAutoAnswer.checked) return;
+  if (state.screenScanInFlight || state.requestInFlight) {
+    if (manual) showMessage("An answer is already being generated. Try the screen scan again when it finishes.");
+    return;
+  }
+  state.screenScanInFlight = true;
+  try {
+    const imageBase64 = await captureScreenFrame();
+    if (!manual && !elements.liveAutoAnswer.checked) return;
+    if (imageBase64 === state.lastScannedFrame) {
+      elements.screenScanStatus.textContent = "No screen changes detected since the last scan.";
+      return;
+    }
+    if (state.requestInFlight) return;
+    const answered = await askCopilot(SCREEN_SCAN_QUESTION, imageBase64);
+    state.lastScannedFrame = answered ? imageBase64 : "";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not scan the current screen.";
+    if (manual) showMessage(message);
+    elements.screenScanStatus.textContent = message;
+  } finally {
+    state.screenScanInFlight = false;
+  }
+}
+
+function setAutoAnswerEnabled(enabled) {
+  elements.autoAnswer.checked = enabled;
+  elements.liveAutoAnswer.checked = enabled;
+  void saveAutoAnswer(enabled);
+  if (elements.liveView.hidden) return;
+  if (enabled) {
+    startScreenScan();
+    if (!state.listening) void startListening();
+  } else {
+    stopScreenScan();
+    stopListening();
+  }
+}
+
+async function startScreenShare() {
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    showMessage("Screen sharing is not available in this Chrome version.");
+    return;
+  }
+  elements.shareScreenButton.disabled = true;
+  showMessage("");
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    state.displayStream = stream;
+    elements.screenPreview.srcObject = stream;
+    elements.screenPreviewPanel.hidden = false;
+    elements.screenShareStatus.textContent = stream.getAudioTracks().length
+      ? "Screen and available audio are shared."
+      : "Screen is shared. This source did not provide audio.";
+    elements.shareScreenButton.textContent = "Screen Shared";
+    const [videoTrack] = stream.getVideoTracks();
+    if (!videoTrack) throw new Error("The selected source did not provide a video track.");
+    videoTrack.addEventListener("ended", () => {
+      if (state.displayStream === stream) stopScreenShare();
+    }, { once: true });
+    await elements.screenPreview.play();
+    if (elements.liveAutoAnswer.checked) {
+      stopScreenScan();
+      startScreenScan();
+    }
+  } catch (error) {
+    if (state.displayStream) stopScreenShare();
+    const message = error instanceof Error
+      ? error.name === "NotAllowedError"
+        ? "Screen sharing was canceled or denied."
+        : error.message
+      : "Could not share the selected screen.";
+    showMessage(message);
+  } finally {
+    elements.shareScreenButton.disabled = false;
+  }
+}
+
+function stopScreenShare(restartScanner = true) {
+  const stream = state.displayStream;
+  state.displayStream = null;
+  if (stream) stream.getTracks().forEach((track) => track.stop());
+  elements.screenPreview.srcObject = null;
+  elements.screenPreviewPanel.hidden = true;
+  elements.shareScreenButton.textContent = "Share Screen";
+  if (restartScanner && elements.liveAutoAnswer.checked && !elements.liveView.hidden) {
+    stopScreenScan();
+    startScreenScan();
+  }
+}
+
 async function initialize() {
+  if (new URLSearchParams(window.location.search).get("grantMic") === "1") {
+    elements.shell.hidden = true;
+    elements.micGrantView.hidden = false;
+    await requestMicrophoneGrant();
+    return;
+  }
+
   try {
     state.settings = await PitchPilotExtension.loadSettings();
+    const launchState = await chrome.storage.session.get("pitchpilotTargetTabId");
+    state.targetTabId = Number.isInteger(launchState.pitchpilotTargetTabId)
+      ? launchState.pitchpilotTargetTabId
+      : null;
     elements.backendOrigin.value = state.settings.apiOrigin;
     elements.apiToken.value = state.settings.apiToken;
     elements.rememberToken.checked = state.settings.rememberToken;
     elements.sessionId.value = state.settings.sessionId;
     elements.autoAnswer.checked = state.settings.autoAnswer;
+    elements.liveAutoAnswer.checked = state.settings.autoAnswer;
     elements.languageSelect.value = state.settings.language;
     elements.answerStyle.value = state.settings.answerStyle;
     selectSessionType(state.settings.sessionType);
@@ -770,10 +1022,18 @@ elements.listenButton.addEventListener("click", () => {
   if (state.listening) stopListening();
   else void startListening();
 });
-elements.solveButton.addEventListener("click", () => void solveCurrentTab());
+elements.enableMicrophone.addEventListener("click", () => void openMicrophonePermissionTab());
+elements.micGrantAction.addEventListener("click", () => {
+  if (state.microphoneGranted) void closeMicrophonePermissionTab();
+  else void requestMicrophoneGrant();
+});
+elements.solveButton.addEventListener("click", () => void scanScreenForQuestions(true));
+elements.shareScreenButton.addEventListener("click", () => void startScreenShare());
+elements.stopScreenShare.addEventListener("click", () => stopScreenShare());
 elements.askButton.addEventListener("click", () => void askCopilot(elements.question.value));
 elements.endSession.addEventListener("click", endSession);
-elements.autoAnswer.addEventListener("change", () => void saveAutoAnswer());
+elements.autoAnswer.addEventListener("change", () => setAutoAnswerEnabled(elements.autoAnswer.checked));
+elements.liveAutoAnswer.addEventListener("change", () => setAutoAnswerEnabled(elements.liveAutoAnswer.checked));
 elements.apiToken.addEventListener("input", () => {
   if (state.settings) state.settings.apiToken = elements.apiToken.value.trim();
 });
@@ -781,7 +1041,9 @@ elements.backendOrigin.addEventListener("input", () => {
   if (state.settings) state.settings.apiOrigin = elements.backendOrigin.value.trim();
 });
 window.addEventListener("beforeunload", () => {
+  stopScreenScan();
   stopListening();
+  stopScreenShare(false);
   if (state.timer) clearInterval(state.timer);
 });
 
