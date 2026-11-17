@@ -122,13 +122,19 @@ async function loadPopup() {
   }
 }
 
+function closeSettings() {
+  elements.settingsPanel.hidden = true;
+  elements.settingsToggle.setAttribute("aria-expanded", "false");
+}
+
 elements.settingsToggle.addEventListener("click", () => {
-  const isSettings = !elements.settingsPanel.hidden;
-  elements.settingsPanel.hidden = isSettings;
-  elements.settingsToggle.setAttribute("aria-expanded", String(!isSettings));
+  const isHidden = elements.settingsPanel.hidden;
+  elements.settingsPanel.hidden = !isHidden;
+  elements.settingsToggle.setAttribute("aria-expanded", String(isHidden));
 });
 
-elements.settingsClose.addEventListener("click", () => elements.settingsPanel.hidden = true);
+elements.settingsClose.addEventListener("click", closeSettings);
+
 elements.saveSettings.addEventListener("click", async () => {
   try {
     await PitchPilotExtension.saveSettings({
@@ -138,7 +144,18 @@ elements.saveSettings.addEventListener("click", async () => {
       autoAnswer: elements.autoAnswer.checked,
     });
     showSettingsMessage("Saved successfully.", "success");
-    elements.settingsPanel.hidden = true;
+    closeSettings();
+    await loadPopup();
+  } catch (e) {
+    showSettingsMessage(e.message, "error");
+  }
+});
+
+elements.connectAccount.addEventListener("click", async () => {
+  try {
+    await PitchPilotExtension.connectAccount();
+    showSettingsMessage("Connected successfully.", "success");
+    closeSettings();
     await loadPopup();
   } catch (e) {
     showSettingsMessage(e.message, "error");
@@ -188,13 +205,8 @@ elements.importTab.addEventListener("click", async () => {
   }
 });
 
-elements.startSession.addEventListener("click", () => {
-  navigateStep("copilot");
-});
-
-elements.backToSetup.addEventListener("click", () => {
-  navigateStep("context");
-});
+elements.startSession.addEventListener("click", () => navigateStep("copilot"));
+elements.backToSetup.addEventListener("click", () => navigateStep("context"));
 
 async function triggerAiQuery(promptText) {
   if (!promptText.trim()) return;
@@ -259,14 +271,9 @@ function escapeHtml(str) {
     .replace(0x27, "&#039;");
 }
 
-elements.askBtn.addEventListener("click", () => {
-  triggerAiQuery(elements.questionInput.value);
-});
-
+elements.askBtn.addEventListener("click", () => triggerAiQuery(elements.questionInput.value));
 elements.questionInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-    triggerAiQuery(elements.questionInput.value);
-  }
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) triggerAiQuery(elements.questionInput.value);
 });
 
 function toggleListening() {
@@ -275,7 +282,6 @@ function toggleListening() {
     alert("Speech recognition is not supported in this browser.");
     return;
   }
-
   if (isListening) {
     if (recognition) recognition.stop();
     isListening = false;
@@ -283,50 +289,31 @@ function toggleListening() {
     elements.liveStatusText.textContent = "Live Copilot Active (Paused)";
     return;
   }
-
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = "en-US";
-
   recognition.onstart = () => {
     isListening = true;
     elements.listenToggle.textContent = "⏹ Stop Listening";
     elements.liveStatusText.textContent = "Listening for meeting speech…";
   };
-
   recognition.onresult = (event) => {
     let transcript = "";
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      transcript += event.results[i][0].transcript;
-    }
+    for (let i = event.resultIndex; i < event.results.length; ++i) transcript += event.results[i][0].transcript;
     elements.questionInput.value = transcript.trim();
-
     if (elements.autoAnswer.checked && event.results[event.results.length - 1].isFinal) {
       if (silenceTimer) clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        if (elements.questionInput.value.trim()) {
-          triggerAiQuery(elements.questionInput.value);
-        }
+        if (elements.questionInput.value.trim()) triggerAiQuery(elements.questionInput.value);
       }, 1500);
     }
   };
-
-  recognition.onerror = (event) => {
-    console.error("Speech recognition error:", event.error);
-  };
-
+  recognition.onerror = (event) => console.error("Speech recognition error:", event.error);
   recognition.onend = () => {
-    if (isListening) {
-      try { recognition.start(); } catch (err) { console.error("Restart recognition error:", err); }
-    }
+    if (isListening) try { recognition.start(); } catch (err) { console.error("Restart recognition error:", err); }
   };
-
-  try {
-    recognition.start();
-  } catch (err) {
-    console.error("Start recognition error:", err);
-  }
+  try { recognition.start(); } catch (err) { console.error("Start recognition error:", err); }
 }
 
 elements.listenToggle.addEventListener("click", toggleListening);
@@ -338,14 +325,12 @@ elements.solveScreen.addEventListener("click", async () => {
     const imageCapture = new ImageCapture(track);
     const bitmap = await imageCapture.grabFrame();
     track.stop();
-
     const canvas = document.createElement("canvas");
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(bitmap, 0, 0);
     const imageBase64 = canvas.toDataURL("image/png");
-
     elements.questionInput.value = "Analyze the shared screen code or meeting question.";
     await triggerAiQueryWithScreenshot("Analyze the shared screen code or meeting question.", imageBase64);
   } catch (err) {
@@ -358,7 +343,6 @@ async function triggerAiQueryWithScreenshot(promptText, imageBase64) {
   elements.aiResponse.innerHTML = '<div class="placeholder-result">Scanning screen and solving with AI…</div>';
   const settings = await PitchPilotExtension.loadSettings();
   const selectedDocIds = Array.from(elements.documentSelect.selectedOptions).map(o => o.value);
-  
   try {
     const res = await PitchPilotExtension.requestJson("/api/copilot/answer", settings, {
       method: "POST",
@@ -371,7 +355,6 @@ async function triggerAiQueryWithScreenshot(promptText, imageBase64) {
         sessionId: currentSession.sessionId
       })
     });
-    
     const data = res.data;
     if (!data) throw new Error("No response data received from AI.");
     elements.aiResponse.innerHTML = `<div style="font-weight:700; margin-bottom:6px; color:var(--accent-blue);">📸 Screen Scan Analysis</div>
@@ -382,19 +365,7 @@ async function triggerAiQueryWithScreenshot(promptText, imageBase64) {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" || (e.ctrlKey && e.shiftKey && e.key === "H")) {
-    togglePanic();
-  }
-});
-
-elements.connectAccount.addEventListener("click", async () => {
-  try {
-    await PitchPilotExtension.connectAccount();
-    await loadPopup();
-    showSettingsMessage("Connected successfully.", "success");
-  } catch (e) {
-    showSettingsMessage(e.message, "error");
-  }
+  if (e.key === "Escape" || (e.ctrlKey && e.shiftKey && e.key === "H")) togglePanic();
 });
 
 loadPopup();
