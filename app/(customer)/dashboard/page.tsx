@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Video, Shield, FileText, ArrowRight, MessageSquare, CheckCircle, Sparkles, Coins } from "lucide-react"
+import { Video, Shield, FileText, ArrowRight, MessageSquare, CheckCircle, Sparkles, Coins, EyeOff, Terminal, Zap } from "lucide-react"
 import PromoCodeBox from "@/components/promo-code-box"
 import LaunchCopilotButton from "@/components/launch-copilot-button"
 
@@ -20,8 +20,14 @@ export default async function DashboardPage() {
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-indigo-950/80 via-zinc-900 to-zinc-900 border border-indigo-500/20 rounded-3xl p-8 mb-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-indigo-400 mb-2">
-            <Shield className="w-4 h-4" /> Stealth Interview Hub Active
+          <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider mb-3">
+            <div className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/30 px-2.5 py-1 rounded-full text-indigo-300">
+              <Shield className="w-3.5 h-3.5" /> Stealth Engine Active
+            </div>
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Screen-Share Cloak: Ready
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Welcome back, {user?.name || user?.email}</h1>
           <p className="text-zinc-400 text-sm">Ready for your interview or client pitch? Launch your stealth copilot room.</p>
@@ -45,6 +51,39 @@ export default async function DashboardPage() {
             >
               <MessageSquare className="w-5 h-5" /> Mock Interview
             </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Stealth Mode Quick Guide */}
+      <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 mb-10">
+        <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <EyeOff className="w-4 h-4 text-indigo-400" /> Stealth Mode Quick Guide
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-800/50">
+            <div className="flex items-center gap-2 mb-2 text-xs font-bold text-zinc-300">
+              <Zap className="w-3.5 h-3.5 text-emerald-400" /> Panic Hide
+            </div>
+            <p className="text-[11px] leading-relaxed text-zinc-500">
+              Press <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Esc</kbd> or <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Ctrl+Shift+H</kbd> in the extension to instantly blur the interface.
+            </p>
+          </div>
+          <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-800/50">
+            <div className="flex items-center gap-2 mb-2 text-xs font-bold text-zinc-300">
+              <Terminal className="w-3.5 h-3.5 text-purple-400" /> Camouflage
+            </div>
+            <p className="text-[11px] leading-relaxed text-zinc-500">
+              Use the <span className="text-indigo-400">VS Code Theme</span> toggle to disguise the assistant as a dark code editor, making it look like standard notes on screen share.
+            </p>
+          </div>
+          <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-800/50">
+            <div className="flex items-center gap-2 mb-2 text-xs font-bold text-zinc-300">
+              <Shield className="w-3.5 h-3.5 text-indigo-400" /> Screen Cloaking
+            </div>
+            <p className="text-[11px] leading-relaxed text-zinc-500">
+              PitchPilot is built to be undetectable by popular meeting platforms. Always use our Chrome extension for maximum privacy.
+            </p>
           </div>
         </div>
       </div>

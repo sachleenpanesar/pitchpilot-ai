@@ -34,6 +34,61 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Stealth Mode: VS Code Theme Camouflage */
+body.vscode-theme {
+  --background: #1e1e1e !important;
+  --foreground: #d4d4d4 !important;
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+}
+
+body.vscode-theme header,
+body.vscode-theme nav,
+body.vscode-theme aside,
+body.vscode-theme main,
+body.vscode-theme footer,
+body.vscode-theme div,
+body.vscode-theme section {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  border-color: #333333 !important;
+}
+
+body.vscode-theme input,
+body.vscode-theme textarea,
+body.vscode-theme select {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+  border-color: #3c3c3c !important;
+}
+
+/* Stealth Mode: Panic Hide / Blur */
+body.panic-hidden,
+.panic-hidden {
+  filter: blur(12px) grayscale(0.8) !important;
+  opacity: 0.05 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.15s ease-in-out, opacity 0.15s ease-in-out;
+}
+
+/* Opacity Control Utility Classes */
+.opacity-stealth-100 { opacity: 1.0; }
+.opacity-stealth-95 { opacity: 0.95; }
+.opacity-stealth-90 { opacity: 0.90; }
+.opacity-stealth-85 { opacity: 0.85; }
+.opacity-stealth-80 { opacity: 0.80; }
+.opacity-stealth-75 { opacity: 0.75; }
+.opacity-stealth-70 { opacity: 0.70; }
+.opacity-stealth-65 { opacity: 0.65; }
+.opacity-stealth-60 { opacity: 0.60; }
+.opacity-stealth-55 { opacity: 0.55; }
+.opacity-stealth-50 { opacity: 0.50; }
+.opacity-stealth-40 { opacity: 0.40; }
+.opacity-stealth-30 { opacity: 0.30; }
+.opacity-stealth-20 { opacity: 0.20; }
+.opacity-stealth-10 { opacity: 0.10; }
+
 @media print {
   @page {
     size: letter;

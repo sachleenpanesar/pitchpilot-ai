@@ -4,6 +4,8 @@ const SETTINGS_KEY = "pitchpilotSettings";
 const SILENCE_DELAY_MS = 1500;
 const SCREEN_SCAN_INTERVAL_MS = 15_000;
 const SCREEN_SCAN_QUESTION = "Inspect this screen frame for a visible programming or coding challenge, or an interview question. If a clear question is visible, solve it without inventing missing details. For coding tasks, provide the approach, optimal code in the language shown or requested, and time/space Big-O. For interview questions, provide a concise structured answer. If no question is visible, state that no question was detected.";
+const CAMOUFLAGE_STORAGE_KEY = "pitchpilotCamouflageMode";
+const STEALTH_PREF_STORAGE_KEY = "pitchpilotStealthPrefs";
 
 const elements = {
   settingsToggle: document.getElementById("settings-toggle"),
@@ -66,6 +68,10 @@ const elements = {
   askButton: document.getElementById("ask-button"),
   results: document.getElementById("results"),
   endSession: document.getElementById("end-session"),
+  panicHideBtn: document.getElementById("panic-hide-btn"),
+  camouflageToggle: document.getElementById("camouflage-toggle"),
+  stealthOpacity: document.getElementById("stealth-opacity"),
+  disguiseTitleToggle: document.getElementById("disguise-title-toggle"),
 };
 
 const state = {
@@ -93,6 +99,11 @@ const state = {
   screenScanTimer: null,
   screenScanInFlight: false,
   lastScannedFrame: "",
+  stealthMode: false,
+  panicHidden: false,
+  titleDisguised: false,
+  opacity: 1.0,
+  originalTitle: document.title || "PitchPilot AI",
 };
 
 function setStatus(title, detail, status = "idle") {
@@ -105,6 +116,70 @@ function showMessage(message, kind = "error") {
   elements.appMessage.textContent = message || "";
   elements.appMessage.hidden = !message;
   elements.appMessage.dataset.kind = kind;
+}
+
+function updateStealthUI() {
+  document.body.classList.toggle("stealth-mode", state.stealthMode);
+  elements.camouflageToggle.textContent = state.stealthMode ? "💻 Default Theme" : "💻 VS Code Theme";
+  
+  elements.shell.classList.toggle("panic-blurred", state.panicHidden);
+  elements.panicHideBtn.textContent = state.panicHidden ? "🛡️ Show UI" : "🛡️ Panic Hide (Esc)";
+
+  document.title = state.titleDisguised ? "README.md - Visual Studio Code" : state.originalTitle;
+  document.body.style.opacity = String(state.opacity);
+  
+  elements.stealthOpacity.value = String(state.opacity);
+  elements.disguiseTitleToggle.checked = state.titleDisguised;
+}
+
+function saveStealthPrefs() {
+  try {
+    localStorage.setItem(STEALTH_PREF_STORAGE_KEY, JSON.stringify({
+      stealthMode: state.stealthMode,
+      titleDisguised: state.titleDisguised,
+      opacity: state.opacity
+    }));
+  } catch (error) {
+    console.error("Failed to persist stealth prefs:", error);
+  }
+}
+
+function loadStealthPrefs() {
+  try {
+    const saved = localStorage.getItem(STEALTH_PREF_STORAGE_KEY);
+    if (saved) {
+      const prefs = JSON.parse(saved);
+      state.stealthMode = !!prefs.stealthMode;
+      state.titleDisguised = !!prefs.titleDisguised;
+      state.opacity = typeof prefs.opacity === "number" ? prefs.opacity : 1.0;
+      updateStealthUI();
+    }
+  } catch (error) {
+    console.error("Failed to load stealth prefs:", error);
+  }
+}
+
+function togglePanicHide() {
+  state.panicHidden = !state.panicHidden;
+  updateStealthUI();
+}
+
+function toggleCamouflage() {
+  state.stealthMode = !state.stealthMode;
+  saveStealthPrefs();
+  updateStealthUI();
+}
+
+function toggleTitleDisguise() {
+  state.titleDisguised = !state.titleDisguised;
+  saveStealthPrefs();
+  updateStealthUI();
+}
+
+function handleOpacityChange(e) {
+  state.opacity = parseFloat(e.target.value);
+  saveStealthPrefs();
+  updateStealthUI();
 }
 
 function isMicrophonePermissionDenied(error) {
@@ -1136,6 +1211,7 @@ function stopScreenShare(restartScanner = true) {
 }
 
 async function initialize() {
+  loadStealthPrefs();
   if (new URLSearchParams(window.location.search).get("grantMic") === "1") {
     elements.shell.hidden = true;
     elements.micGrantView.hidden = false;
@@ -1161,6 +1237,7 @@ async function initialize() {
     elements.extensionAccessLink.href = `${state.settings.apiOrigin}/extension-access`;
     elements.supportLink.href = `${state.settings.apiOrigin}/dashboard`;
     elements.upgradeLink.href = `${state.settings.apiOrigin}/pricing`;
+    
     if (!state.settings.apiToken) {
       try {
         state.settings = await PitchPilotExtension.connectAccount(state.settings);
@@ -1238,6 +1315,21 @@ elements.apiToken.addEventListener("input", () => {
 elements.backendOrigin.addEventListener("input", () => {
   if (state.settings) state.settings.apiOrigin = elements.backendOrigin.value.trim();
 });
+
+elements.panicHideBtn.addEventListener("click", togglePanicHide);
+elements.camouflageToggle.addEventListener("click", toggleCamouflage);
+elements.stealthOpacity.addEventListener("input", handleOpacityChange);
+elements.disguiseTitleToggle.addEventListener("change", toggleTitleDisguise);
+
+window.addEventListener("keydown", (event) => {
+  const isEsc = event.key === "Escape";
+  const isCtrlShiftH = (event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === "H" || event.key === "h");
+  if (isEsc || isCtrlShiftH) {
+    event.preventDefault();
+    togglePanicHide();
+  }
+});
+
 window.addEventListener("beforeunload", () => {
   stopScreenScan();
   stopListening();

@@ -15,6 +15,7 @@ import {
   Volume2,
   X,
 } from "lucide-react"
+import StealthModeToggle, { type StealthModeState } from "@/components/stealth-mode-toggle"
 
 type CopilotResult = {
   summary?: string
@@ -247,7 +248,12 @@ export default function CopilotRoomPage() {
   const [isListening, setIsListening] = useState(false)
   const [summary, setSummary] = useState<SessionSummary | null>(null)
   const [summaryBusy, setSummaryBusy] = useState(false)
-  const [hidden, setHidden] = useState(false)
+  const [stealthState, setStealthState] = useState<StealthModeState>({
+    isPanicked: false,
+    isVsCodeTheme: false,
+    isTitleDisguised: false,
+    opacity: 1,
+  })
   const [recognitionAvailable, setRecognitionAvailable] = useState(true)
   const [captureActive, setCaptureActive] = useState(false)
   const [captureStarting, setCaptureStarting] = useState(false)
@@ -344,16 +350,6 @@ export default function CopilotRoomPage() {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [transcript])
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" || (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "h")) {
-        setHidden((previous) => !previous)
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
 
   const addTranscript = (entries: TranscriptEntry[]) => {
     setTranscript((previous) => [...previous, ...entries])
@@ -727,23 +723,15 @@ export default function CopilotRoomPage() {
     window.speechSynthesis.speak(new SpeechSynthesisUtterance(result.summary))
   }
 
-  if (hidden) {
-    return (
-      <button
-        onClick={() => setHidden(false)}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs text-zinc-300 shadow-2xl hover:text-white"
-      >
-        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-        Copilot paused — click to restore
-      </button>
-    )
-  }
-
   const cardClass = "rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5"
   const captureHasError = /denied|could not|not support|no microphone|no shared-tab|permission/i.test(captureMessage)
 
   return (
-    <div onPaste={handlePaste} className="min-h-[calc(100vh-4rem)] bg-zinc-950 text-zinc-100">
+    <div
+      onPaste={handlePaste}
+      className={`min-h-[calc(100vh-4rem)] bg-zinc-950 text-zinc-100 transition-opacity duration-200 ${stealthState.isPanicked ? "opacity-0" : ""}`}
+      style={{ opacity: stealthState.opacity }}
+    >
       <div className="border-b border-zinc-800 bg-zinc-900/90 px-4 py-3">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -755,9 +743,13 @@ export default function CopilotRoomPage() {
               <Sparkles className="h-4 w-4" /> {isMock ? "Mock Interview" : "Interview Copilot"}
             </span>
           </div>
-          <button onClick={() => setHidden(true)} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500">
-            Hide workspace (Esc)
-          </button>
+          <StealthModeToggle
+            initialOpacity={stealthState.opacity}
+            initialPanic={stealthState.isPanicked}
+            initialVsCodeTheme={stealthState.isVsCodeTheme}
+            initialTitleDisguise={stealthState.isTitleDisguised}
+            onStateChange={setStealthState}
+          />
         </div>
       </div>
 

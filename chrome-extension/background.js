@@ -4,6 +4,26 @@ const COPILOT_WINDOW_WIDTH = 940;
 const COPILOT_WINDOW_HEIGHT = 660;
 const TARGET_TAB_STORAGE_KEY = "pitchpilotTargetTabId";
 
+async function getCenteredCoordinates(width, height) {
+  try {
+    const currentWindow = await chrome.windows.getCurrent();
+    if (
+      currentWindow &&
+      typeof currentWindow.left === "number" &&
+      typeof currentWindow.top === "number" &&
+      typeof currentWindow.width === "number" &&
+      typeof currentWindow.height === "number"
+    ) {
+      const left = Math.max(0, Math.round(currentWindow.left + (currentWindow.width - width) / 2));
+      const top = Math.max(0, Math.round(currentWindow.top + (currentWindow.height - height) / 2));
+      return { left, top };
+    }
+  } catch {
+    // Fallback if current window coordinates cannot be queried
+  }
+  return {};
+}
+
 async function findCopilotWindow(copilotUrl) {
   const expected = new URL(copilotUrl);
   const windows = await chrome.windows.getAll({ populate: true });
@@ -33,24 +53,37 @@ async function openCopilotWindow(targetTabId) {
 
   const copilotUrl = chrome.runtime.getURL("sidepanel.html");
   const existing = await findCopilotWindow(copilotUrl);
+  const { left, top } = await getCenteredCoordinates(COPILOT_WINDOW_WIDTH, COPILOT_WINDOW_HEIGHT);
+
   if (existing) {
-    await chrome.windows.update(existing.window.id, {
+    const updateInfo = {
       width: COPILOT_WINDOW_WIDTH,
       height: COPILOT_WINDOW_HEIGHT,
       focused: true,
       state: "normal",
-    });
+    };
+    if (typeof left === "number" && typeof top === "number") {
+      updateInfo.left = left;
+      updateInfo.top = top;
+    }
+    await chrome.windows.update(existing.window.id, updateInfo);
     await chrome.tabs.update(existing.tab.id, { active: true });
     return;
   }
 
-  await chrome.windows.create({
+  const createInfo = {
     url: copilotUrl,
     type: "popup",
     width: COPILOT_WINDOW_WIDTH,
     height: COPILOT_WINDOW_HEIGHT,
     focused: true,
-  });
+  };
+  if (typeof left === "number" && typeof top === "number") {
+    createInfo.left = left;
+    createInfo.top = top;
+  }
+
+  await chrome.windows.create(createInfo);
 }
 
 function isAllowedWebsiteSender(sender) {

@@ -26,6 +26,11 @@
           </div>
         </div>
         <nav class="top-actions" aria-label="Account actions">
+          <div class="stealth-controls" aria-label="Stealth mode quick actions">
+            <button id="panic-hide-btn" class="button button-secondary stealth-button" type="button" title="Panic Hide (Esc / Ctrl+Shift+H)" aria-label="Panic Hide (Esc / Ctrl+Shift+H)">🛡️ Panic Hide (Esc)</button>
+            <button id="camouflage-toggle" class="button button-secondary stealth-button" type="button" title="Toggle VS Code Theme Camouflage" aria-label="Toggle VS Code Theme Camouflage">💻 VS Code Theme</button>
+            <button id="stealth-settings-toggle" class="button button-secondary stealth-button" type="button" title="Stealth Controls" aria-label="Stealth mode settings">⚙️ Stealth Controls</button>
+          </div>
           <a id="support-link" class="top-link" href="#">Support</a>
           <span id="credit-badge" class="credit-badge" aria-live="polite">Connect account</span>
           <a id="upgrade-link" class="top-link top-link-upgrade" href="#">Upgrade</a>
@@ -34,6 +39,20 @@
         </button>
         </nav>
       </header>
+
+      <section id="stealth-controls-panel" class="panel stealth-panel" hidden aria-label="Stealth mode settings">
+        <div class="settings-heading">
+          <h3>Stealth Controls</h3>
+          <p class="hint">Esc / Ctrl+Shift+H to Panic Hide</p>
+        </div>
+        <label class="field" for="stealth-opacity">Window Opacity
+          <input id="stealth-opacity" type="range" min="0.1" max="1.0" step="0.05" value="1.0">
+        </label>
+        <label class="toggle-row" for="disguise-title-toggle">
+          <span><strong>Title Disguise</strong><span class="hint">Spoof window title as 'README.md - Visual Studio Code'</span></span>
+          <input id="disguise-title-toggle" type="checkbox">
+        </label>
+      </section>
 
       <div class="workspace">
         <aside class="session-sidebar" aria-label="Session setup steps">

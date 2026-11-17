@@ -57,15 +57,29 @@ export default function LaunchCopilotButton() {
     setMessage("")
     try {
       const detected = await requestExtension("PITCHPILOT_DETECT", 1200)
-      if (!detected?.available) {
-        router.push("/extension-access")
-        return
+      if (detected?.available) {
+        const result = await requestExtension("OPEN_PITCHPILOT_EXTENSION", 2500)
+        if (result?.opened) {
+          return
+        }
       }
 
-      const result = await requestExtension("OPEN_PITCHPILOT_EXTENSION", 2500)
-      if (!result?.opened) {
-        setMessage(result?.error || "The extension could not open its window. Open the PitchPilot extension from Chrome’s toolbar.")
+      const copilotUrl = "/copilot/new"
+      const width = 940
+      const height = 660
+      const left = Math.max(0, Math.round((window.innerWidth - width) / 2))
+      const top = Math.max(0, Math.round((window.innerHeight - height) / 2))
+      const popup = window.open(
+        copilotUrl,
+        "PitchPilotPopup",
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
+      )
+      if (!popup) {
+        router.push(copilotUrl)
       }
+    } catch (error) {
+      console.error("Could not launch popup session:", error)
+      router.push("/copilot/new")
     } finally {
       setBusy(false)
     }
@@ -81,7 +95,7 @@ export default function LaunchCopilotButton() {
         className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3.5 font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:cursor-wait disabled:opacity-70"
       >
         <Video className="h-5 w-5" aria-hidden="true" />
-        {busy ? "Connecting to extension…" : "Launch Copilot"}
+        {busy ? "Launching session…" : "Launch Copilot"}
       </button>
       {message && (
         <p id="launch-copilot-message" className="max-w-xs text-xs leading-5 text-amber-200" role="status" aria-live="polite">

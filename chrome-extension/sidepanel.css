@@ -11,6 +11,9 @@
   --slate: #334155;
   --muted: #64748b;
   --border: #d7e1df;
+  --vscode-bg: #1e1e1e;
+  --vscode-fg: #d4d4d4;
+  --vscode-border: #333333;
 }
 
 * { box-sizing: border-box; }
@@ -23,6 +26,26 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   outline-offset: 2px;
 }
 [hidden] { display: none !important; }
+
+body.stealth-mode {
+  background: var(--vscode-bg);
+  color: var(--vscode-fg);
+}
+body.stealth-mode .shell { background: var(--vscode-bg); }
+body.stealth-mode .panel, body.stealth-mode .session-sidebar, body.stealth-mode .content-column {
+  background: #252526;
+  border-color: var(--vscode-border);
+  color: var(--vscode-fg);
+}
+body.stealth-mode .topbar { background: #000; }
+body.stealth-mode .field input, body.stealth-mode .field textarea, body.stealth-mode .field select {
+  background: #3c3c3c;
+  border-color: #555;
+  color: white;
+}
+
+.panic-blurred { filter: blur(8px) grayscale(0.5); pointer-events: none; transition: filter 0.2s ease; }
+
 .shell { max-width: 720px; margin: 0 auto; padding: 18px 16px 28px; }
 .mic-grant-view { display: grid; min-height: 100vh; place-items: center; padding: 16px; }
 .mic-grant-panel { width: min(420px, 100%); margin: 0; }
@@ -197,6 +220,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message[data-kind="error"] { color: #b91c1c; }
 .message[data-kind="success"] { color: var(--emerald); }
 .footer { margin: 14px 2px 0; color: #94a3b8; font-size: 9px; line-height: 1.5; }
+
 @media (max-width: 340px) {
   .live-actions { grid-template-columns: 1fr; }
   .step-marker { gap: 4px; font-size: 9px; }
@@ -205,9 +229,13 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
 .shell { max-width: 1120px; padding: 12px; }
 .topbar { min-height: 48px; }
 .top-actions { display: flex; align-items: center; gap: 10px; }
+.stealth-controls { display: flex; gap: 6px; margin-right: 8px; }
+.stealth-button { padding: 4px 8px; font-size: 9px; border-radius: 6px; }
+
 .top-link { color: #475569; font-size: 10px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .top-link:hover { color: var(--emerald-dark); text-decoration: underline; }
 .top-link-upgrade { color: var(--emerald-dark); }
@@ -233,6 +261,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .panel, .content-column, .field, .settings { min-width: 0; max-width: 100%; }
 .field input, .field textarea, .field select { min-width: 0; }
 .settings { width: 100%; }
+
 @media (max-width: 500px) {
   .shell { width: 100%; padding: 9px; }
   .topbar { flex-wrap: wrap; align-items: flex-start; gap: 7px; }
@@ -261,6 +290,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .live-actions .button { min-width: 0; overflow-wrap: anywhere; }
   .settings-actions .button { flex: 1 1 auto; }
 }
+
 @media (max-width: 360px) {
   .choice-row, .live-actions { grid-template-columns: 1fr; }
   .step-marker { gap: 4px; padding-right: 4px; padding-left: 4px; }

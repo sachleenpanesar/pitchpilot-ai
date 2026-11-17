@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>PitchPilot AI — Prepare your session</title>
+    <link rel="stylesheet" href="sidepanel.css">
+  </head>
+  <body>
+    <section id="mic-grant-view" class="mic-grant-view" hidden aria-labelledby="mic-grant-heading">
+      <div class="panel mic-grant-panel">
+        <p class="eyebrow">MICROPHONE PERMISSION</p>
+        <h1 id="mic-grant-heading">Enable your microphone</h1>
+        <p id="mic-grant-status" class="hint" role="status" aria-live="polite">Allow microphone access in Chrome's permission prompt.</p>
+        <button id="mic-grant-action" class="button button-secondary button-wide" type="button" hidden>Close this tab</button>
+      </div>
+    </section>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <div>
+            <p class="eyebrow">PITCHPILOT AI</p>
+            <h1>Prepare your session</h1>
+          </div>
+        </div>
+        <nav class="top-actions" aria-label="Account actions">
+          <a id="support-link" class="top-link" href="#">Support</a>
+          <span id="credit-badge" class="credit-badge" aria-live="polite">Connect account</span>
+          <a id="upgrade-link" class="top-link top-link-upgrade" href="#">Upgrade</a>
+          <button id="settings-toggle" class="icon-button" type="button" aria-label="Connection settings" aria-controls="connection-settings" aria-expanded="false" title="Connection settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .8v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.8l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.8-3H4a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .8-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.8V2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .8l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .8 3h.2a1.8 1.8 0 0 1 0 3.6H20a1.8 1.8 0 0 0-.6 2.9Z"/></svg>
+        </button>
+        </nav>
+      </header>
+
+      <div class="workspace">
+        <aside class="session-sidebar" aria-label="Session setup steps">
+          <p class="sidebar-label">PREPARE YOUR SESSION</p>
+          <ol class="stepper" aria-label="Session setup progress">
+            <li><button id="step-context-indicator" class="step-marker active" type="button" aria-current="step"><span>1</span><strong>Context</strong></button></li>
+            <li class="step-line" aria-hidden="true"><span>→</span></li>
+            <li><button id="step-preferences-indicator" class="step-marker" type="button"><span>2</span><strong>Preferences</strong></button></li>
+          </ol>
+          <div class="account-footer">
+            <span class="sidebar-label">SIGNED IN AS</span>
+            <strong id="signed-user" title="Not connected">Not connected</strong>
+          </div>
+        </aside>
+        <div class="content-column">
+      <div id="status" class="status" role="status" aria-live="polite" data-state="idle">
+        <span class="status-dot" aria-hidden="true"></span>
+        <div class="status-copy">
+          <strong id="status-title">Build your session context</strong>
+          <span id="status-detail">Connect your account, then add context and preferences.</span>
+        </div>
+      </div>
+      <p id="app-message" class="app-message" role="alert" hidden></p>
+      <button id="enable-microphone" class="button button-secondary button-wide mic-permission-action" type="button" hidden>Enable Microphone</button>
+
+      <section id="setup-view" class="view">
+        <section id="context-step" class="panel wizard-step" aria-labelledby="context-heading">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">STEP 1</p>
+              <h2 id="context-heading" tabindex="-1">Session context</h2>
+            </div>
+          </div>
+
+          <fieldset class="session-choice">
+            <legend>Session type</legend>
+            <div class="choice-row">
+              <button type="button" class="choice-button active" data-session-type="INTERVIEW">Interview</button>
+              <button type="button" class="choice-button" data-session-type="MEETING">Regular Meeting</button>
+            </div>
+          </fieldset>
+
+          <label class="field" for="job-description">Job description or meeting brief
+            <textarea id="job-description" rows="5" maxlength="20000" placeholder="Paste the role description or meeting agenda for more relevant suggestions…"></textarea>
+          </label>
+          <div class="import-row">
+            <button id="import-tab" class="button button-secondary" type="button">Import from Current Tab</button>
+            <label class="button button-secondary file-button" for="brief-file">Upload brief
+              <input id="brief-file" type="file" accept=".txt,.md,text/plain,text/markdown">
+            </label>
+          </div>
+          <p class="hint">Import reads visible page text after you click. Upload a plain-text or Markdown brief.</p>
+
+          <div class="field resume-field">
+            <div class="resume-field-head">
+              <label for="resume-select">Saved CV / Resume</label>
+              <label class="button button-secondary file-button resume-upload-button" for="resume-file">
+                Upload Resume
+                <input id="resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+              </label>
+            </div>
+            <select id="resume-select">
+              <option value="">No CV selected</option>
+            </select>
+            <p id="resume-status" class="hint" role="status" aria-live="polite"></p>
+          </div>
+          <label class="field" for="document-select">Saved Documents <span class="optional">(optional, multi-select)</span>
+            <select id="document-select" multiple size="4" aria-describedby="documents-help"></select>
+          </label>
+          <p id="documents-help" class="hint">Use Ctrl or Command to select more than one document.</p>
+          <p id="documents-status" class="hint" role="status"></p>
+
+          <button id="next-step" class="button button-primary button-wide" type="button">Continue to Preferences <span aria-hidden="true">→</span></button>
+        </section>
+
+        <section id="preferences-step" class="panel wizard-step" aria-labelledby="preferences-heading" hidden>
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">STEP 2</p>
+              <h2 id="preferences-heading" tabindex="-1">Your preferences</h2>
+            </div>
+          </div>
+          <label class="field" for="language-select">Response language
+            <select id="language-select">
+              <option>English</option>
+              <option>Spanish</option>
+              <option>French</option>
+              <option>German</option>
+              <option>Hindi</option>
+              <option>Mandarin Chinese</option>
+              <option>Japanese</option>
+            </select>
+          </label>
+          <label class="field" for="answer-style">Answer style
+            <select id="answer-style">
+              <option value="Concise">Concise and direct</option>
+              <option value="Structured">Structured with key points</option>
+              <option value="Detailed">Detailed explanation</option>
+            </select>
+          </label>
+          <label class="toggle-row" for="auto-answer">
+            <span>
+              <strong>Auto-Answer</strong>
+              <span class="hint">Send recognized speech after 1.5 seconds of silence.</span>
+            </span>
+            <input id="auto-answer" type="checkbox">
+          </label>
+          <label class="field" for="session-id">PitchPilot session ID <span class="optional">(optional)</span>
+            <input id="session-id" type="text" maxlength="128" autocomplete="off" placeholder="Add an existing session for its context">
+          </label>
+          <div class="step-actions">
+            <button id="back-to-context" class="button button-secondary" type="button">Back</button>
+            <button id="start-session" class="button button-primary" type="button">Start Session</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="live-view" class="view" hidden>
+        <div class="live-heading">
+          <div>
+            <p id="live-session-type" class="eyebrow">INTERVIEW SESSION</p>
+            <h2>Live Copilot</h2>
+          </div>
+          <div class="timer" aria-label="Elapsed time"><span class="timer-dot"></span><time id="elapsed-time">00:00</time></div>
+        </div>
+        <div class="live-actions">
+          <button id="listen-button" class="button button-primary" type="button">Start listening</button>
+          <button id="share-screen-button" class="button button-secondary" type="button">Share Screen</button>
+          <button id="solve-button" class="button button-secondary" type="button">Solve Screen Now</button>
+        </div>
+        <p class="hint screen-share-disclosure">If you share your screen, let other participants know when Copilot is active.</p>
+        <label class="toggle-row live-auto-answer" for="live-auto-answer">
+          <span>
+            <strong>Auto-Answer</strong>
+            <span class="hint">Automatically answer speech and scan the screen every 15 seconds.</span>
+          </span>
+          <input id="live-auto-answer" type="checkbox">
+        </label>
+        <p id="screen-scan-status" class="hint screen-scan-status" role="status" aria-live="polite">Scan Screen for Code / Questions is off.</p>
+        <section id="screen-preview-panel" class="panel screen-preview-panel" aria-label="Shared screen preview" hidden>
+          <div class="screen-preview-heading">
+            <div>
+              <strong>Screen share preview</strong>
+              <span id="screen-share-status">Sharing is active.</span>
+            </div>
+            <button id="stop-screen-share" class="button button-quiet" type="button">Stop sharing</button>
+          </div>
+          <video id="screen-preview" autoplay muted playsinline></video>
+        </section>
+
+        <section class="panel question-panel" aria-labelledby="question-heading">
+          <h3 id="question-heading" class="section-title">Ask or dictate</h3>
+          <label class="field" for="question">Question or prompt
+            <textarea id="question" rows="4" maxlength="12000" placeholder="Type a question, or start listening to dictate…"></textarea>
+          </label>
+          <button id="ask-button" class="button button-primary button-wide" type="button">Get Answer</button>
+        </section>
+        <section id="results" class="results" aria-label="Copilot answers" aria-live="polite"></section>
+        <button id="end-session" class="button button-quiet button-wide" type="button">End Session</button>
+      </section>
+
+      <details id="connection-settings" class="panel settings">
+        <summary class="section-title">Connection settings</summary>
+        <label class="field" for="backend-origin">Backend URL
+          <input id="backend-origin" type="url" autocomplete="url" spellcheck="false">
+        </label>
+        <label class="field" for="api-token">30-day extension token
+          <input id="api-token" type="password" autocomplete="off" spellcheck="false" placeholder="Create one from Extension Access">
+        </label>
+        <button id="connect-account" class="button button-secondary button-wide" type="button">Connect signed-in account</button>
+        <label class="remember-row" for="remember-token">
+          <input id="remember-token" type="checkbox">
+          <span>Remember token on this device</span>
+        </label>
+        <p class="privacy">Tokens are session-only by default. If automatic connection is unavailable, create a token at <a id="extension-access-link" href="#">Extension Access</a>. Screenshots and text go only to your configured backend.</p>
+        <div class="settings-actions">
+          <button id="save-settings" class="button button-secondary" type="button">Save settings</button>
+          <button id="clear-token" class="button button-quiet" type="button">Clear token</button>
+        </div>
+        <p id="settings-message" class="message" role="status" aria-live="polite"></p>
+      </details>
+
+        </div>
+      </div>
+      <p class="footer">Use only where permitted. Let participants know when Copilot is active during a shared session.</p>
+    </main>
+    <script src="common.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
