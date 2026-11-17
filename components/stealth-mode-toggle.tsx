@@ -58,6 +58,11 @@ export default function StealthModeToggle({
     } else if (originalTitleRef.current) {
       document.title = originalTitleRef.current;
     }
+    return () => {
+      if (originalTitleRef.current) {
+        document.title = originalTitleRef.current;
+      }
+    };
   }, [isTitleDisguised]);
 
   useEffect(() => {
@@ -76,13 +81,19 @@ export default function StealthModeToggle({
     if (typeof document === "undefined") return;
     if (isPanicked) {
       document.body.classList.add("panic-hidden");
+      document.body.style.opacity = "0";
+      document.body.style.visibility = "hidden";
     } else {
       document.body.classList.remove("panic-hidden");
+      document.body.style.opacity = opacity.toString();
+      document.body.style.visibility = "visible";
     }
     return () => {
       document.body.classList.remove("panic-hidden");
+      document.body.style.opacity = "";
+      document.body.style.visibility = "";
     };
-  }, [isPanicked]);
+  }, [isPanicked, opacity]);
 
   useEffect(() => {
     onStateChange?.({
@@ -130,7 +141,9 @@ export default function StealthModeToggle({
     const handleKeyDown = (event: KeyboardEvent) => {
       const isEsc = event.key === "Escape";
       const isCtrlShiftH =
-        (event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === "H" || event.key === "h");
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        (event.key === "H" || event.key === "h" || event.code === "KeyH");
 
       if (isEsc || isCtrlShiftH) {
         event.preventDefault();

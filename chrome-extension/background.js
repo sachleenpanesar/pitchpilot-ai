@@ -18,8 +18,8 @@ async function getCenteredCoordinates(width, height) {
       const top = Math.max(0, Math.round(currentWindow.top + (currentWindow.height - height) / 2));
       return { left, top };
     }
-  } catch {
-    // Fallback if current window coordinates cannot be queried
+  } catch (error) {
+    console.error("Failed to get window coordinates:", error);
   }
   return {};
 }

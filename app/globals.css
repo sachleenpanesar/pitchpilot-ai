@@ -49,8 +49,8 @@ body.vscode-theme main,
 body.vscode-theme footer,
 body.vscode-theme div,
 body.vscode-theme section {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
   border-color: #333333 !important;
 }
 
@@ -62,14 +62,54 @@ body.vscode-theme select {
   border-color: #3c3c3c !important;
 }
 
+body.vscode-theme .bg-zinc-950,
+body.vscode-theme .bg-zinc-900,
+body.vscode-theme .bg-zinc-900\/60,
+body.vscode-theme .bg-zinc-950\/60,
+body.vscode-theme .bg-slate-950,
+body.vscode-theme .bg-slate-900,
+body.vscode-theme .bg-white,
+body.vscode-theme .bg-gray-50 {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+}
+
+body.vscode-theme .text-white,
+body.vscode-theme .text-zinc-100,
+body.vscode-theme .text-zinc-200,
+body.vscode-theme .text-zinc-300,
+body.vscode-theme .text-zinc-400,
+body.vscode-theme .text-gray-900,
+body.vscode-theme .text-gray-700,
+body.vscode-theme .text-slate-900,
+body.vscode-theme .text-slate-100 {
+  color: #d4d4d4 !important;
+}
+
+body.vscode-theme .border-zinc-800,
+body.vscode-theme .border-zinc-700,
+body.vscode-theme .border-slate-800,
+body.vscode-theme .border-slate-700,
+body.vscode-theme .border-gray-200,
+body.vscode-theme .border-gray-300 {
+  border-color: #333333 !important;
+}
+
+body.vscode-theme .card,
+body.vscode-theme [class*="rounded-"] {
+  background-color: #252526 !important;
+  border-color: #333333 !important;
+}
+
 /* Stealth Mode: Panic Hide / Blur */
 body.panic-hidden,
 .panic-hidden {
-  filter: blur(12px) grayscale(0.8) !important;
-  opacity: 0.05 !important;
+  filter: blur(16px) grayscale(1) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
   pointer-events: none !important;
   user-select: none !important;
-  transition: filter 0.15s ease-in-out, opacity 0.15s ease-in-out;
+  transition: filter 0.1s ease-in-out, opacity 0.1s ease-in-out, visibility 0.1s ease-in-out;
 }
 
 /* Opacity Control Utility Classes */

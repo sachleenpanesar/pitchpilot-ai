@@ -27,24 +27,45 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 [hidden] { display: none !important; }
 
-body.stealth-mode {
-  background: var(--vscode-bg);
-  color: var(--vscode-fg);
-}
-body.stealth-mode .shell { background: var(--vscode-bg); }
-body.stealth-mode .panel, body.stealth-mode .session-sidebar, body.stealth-mode .content-column {
-  background: #252526;
-  border-color: var(--vscode-border);
-  color: var(--vscode-fg);
-}
-body.stealth-mode .topbar { background: #000; }
-body.stealth-mode .field input, body.stealth-mode .field textarea, body.stealth-mode .field select {
-  background: #3c3c3c;
-  border-color: #555;
-  color: white;
+body.vscode-theme {
+  --background: #1e1e1e !important;
+  --foreground: #d4d4d4 !important;
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
 }
 
-.panic-blurred { filter: blur(8px) grayscale(0.5); pointer-events: none; transition: filter 0.2s ease; }
+body.vscode-theme .shell,
+body.vscode-theme .topbar,
+body.vscode-theme .panel,
+body.vscode-theme .session-sidebar,
+body.vscode-theme .content-column,
+body.vscode-theme .card,
+body.vscode-theme section,
+body.vscode-theme header,
+body.vscode-theme aside,
+body.vscode-theme div {
+  background-color: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  border-color: #333333 !important;
+}
+
+body.vscode-theme input,
+body.vscode-theme textarea,
+body.vscode-theme select {
+  background-color: #252526 !important;
+  color: #d4d4d4 !important;
+  border-color: #3c3c3c !important;
+}
+
+body.panic-hidden,
+.panic-hidden {
+  filter: blur(16px) grayscale(1) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: filter 0.1s ease-in-out, opacity 0.1s ease-in-out, visibility 0.1s ease-in-out;
+}
 
 .shell { max-width: 720px; margin: 0 auto; padding: 18px 16px 28px; }
 .mic-grant-view { display: grid; min-height: 100vh; place-items: center; padding: 16px; }
