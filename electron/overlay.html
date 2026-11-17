@@ -451,24 +451,21 @@ window.addEventListener("DOMContentLoaded", () => {
   let activeAnswerController = null;
   let transcriptionQueue = Promise.resolve();
 
-  const TARGET_SAMPLE_RATE = 12000;
-  const PAUSE_FLUSH_MS = 950;
-  const HARD_MAX_PHRASE_MS = 6500;
+  const TARGET_SAMPLE_RATE = 8000;
+  const PAUSE_FLUSH_MS = 650;
+  const HARD_MAX_PHRASE_MS = 2800;
   const MAX_PHRASE_SAMPLES = Math.floor(TARGET_SAMPLE_RATE * HARD_MAX_PHRASE_MS / 1000);
   const MIN_SPEECH_MS = 350;
 
-  function looksIncompleteClause(text) {
-    const clean = text.trim().toLowerCase().replace(/[?!.,]+$/, "");
+  function endsWithDanglingConnector(text) {
+    if (/[?]$/.test(text.trim())) return false;
+    const clean = text.trim().toLowerCase().replace(/[.,!?;:]+$/, "");
     if (!clean) return false;
     const words = clean.split(/\s+/);
-    if (words.length <= 4) return true;
     const trailingConnectors = [
-      "and", "or", "but", "of", "to", "in", "for", "with", "between",
-      "about", "versus", "vs", "what", "how", "why", "when", "which",
-      "advantages", "disadvantages", "difference", "differences", "benefits"
+      "and", "or", "but", "of", "for", "with", "between", "about", "in", "on", "to", "the", "a"
     ];
-    const lastWord = words[words.length - 1];
-    return trailingConnectors.includes(lastWord);
+    return trailingConnectors.includes(words[words.length - 1]);
   }
 
   function joinSegments(segments) {
@@ -491,13 +488,11 @@ window.addEventListener("DOMContentLoaded", () => {
     const combined = joinSegments(accumulatedSegments);
     if (!combined) return;
 
-    const incomplete = looksIncompleteClause(combined);
-    const displayedQuestion = incomplete ? combined.replace(/\?+$/, "") : combined;
-    heardText.textContent = displayedQuestion;
-    questionInput.value = displayedQuestion;
+    heardText.textContent = combined;
+    questionInput.value = combined;
 
-    const waitMs = incomplete ? 1650 : 650;
-    setStatus(`Stitching (${waitMs}ms)…`, "listening");
+    const waitMs = endsWithDanglingConnector(combined) ? 1400 : 0;
+    if (waitMs > 0) setStatus(`Stitching (${waitMs}ms)…`, "listening");
 
     stitchTimer = setTimeout(() => {
       const finalPrompt = joinSegments(accumulatedSegments);
@@ -520,7 +515,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  function downsampleTo12k(float32Array, inputSampleRate) {
+  function downsampleTo8k(float32Array, inputSampleRate) {
     if (inputSampleRate === TARGET_SAMPLE_RATE) return float32Array;
     const ratio = inputSampleRate / TARGET_SAMPLE_RATE;
     const newLength = Math.round(float32Array.length / ratio);
@@ -572,6 +567,18 @@ window.addEventListener("DOMContentLoaded", () => {
       view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
     return new Blob([buffer], { type: "audio/wav" });
+  }
+
+  function trimLeadingSilence(samples, threshold) {
+    const sampleThreshold = Math.max(0.001, threshold * 0.5);
+    let firstSpeechSample = 0;
+    while (
+      firstSpeechSample < samples.length &&
+      Math.abs(samples[firstSpeechSample]) < sampleThreshold
+    ) {
+      firstSpeechSample++;
+    }
+    return samples.subarray(firstSpeechSample);
   }
 
   async function flushAudioBuffer(reason) {
@@ -643,9 +650,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const elapsed = Math.round(performance.now() - t0);
 
         if (transcript && transcript.length > 1) {
-          accumulatedSegments.push(
-            looksIncompleteClause(transcript) ? transcript.replace(/\?+$/, "") : transcript
-          );
+          accumulatedSegments.push(transcript);
           setStatus(`Heard (${elapsed}ms)`, "listening");
           scheduleQuestionDispatch();
         } else {
@@ -711,7 +716,7 @@ window.addEventListener("DOMContentLoaded", () => {
       scriptProcessor.onaudioprocess = (event) => {
         if (!isListening) return;
         const input = event.inputBuffer.getChannelData(0);
-        const downsampled = downsampleTo12k(input, audioContext.sampleRate);
+        const downsampled = downsampleTo8k(input, audioContext.sampleRate);
 
         let sumSq = 0;
         for (let i = 0; i < downsampled.length; i++) {
@@ -730,13 +735,14 @@ window.addEventListener("DOMContentLoaded", () => {
         const threshold = Math.max(0.0032, noiseFloorRms * 2.1);
 
         if (rms > threshold) {
+          const isSpeechOnset = !speechActive;
           if (!speechActive) {
             speechActive = true;
             speechStartTime = now;
             setStatus("Speech detected…", "listening");
           }
           lastSpeechTime = now;
-          appendAudioSamples(downsampled);
+          appendAudioSamples(isSpeechOnset ? trimLeadingSilence(downsampled, threshold) : downsampled);
         } else if (speechActive) {
           appendAudioSamples(downsampled);
           if (now - lastSpeechTime >= PAUSE_FLUSH_MS) {

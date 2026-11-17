@@ -44,8 +44,8 @@ Format your response using these exact headings (keep it concise and punchy):
       const streamModel = genAI.getGenerativeModel({
         model: "gemini-3.5-flash-lite",
         generationConfig: {
-          temperature: 0.35,
-          maxOutputTokens: 280,
+          temperature: 0.3,
+          maxOutputTokens: 320,
         },
       });
 
