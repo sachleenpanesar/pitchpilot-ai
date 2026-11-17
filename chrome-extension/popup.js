@@ -47,6 +47,16 @@ let isListening = false;
 let recognition = null;
 let silenceTimer = null;
 
+function setPanelVisible(el, visible) {
+  if (!el) return;
+  el.hidden = !visible;
+  if (visible) {
+    el.style.removeProperty("display");
+  } else {
+    el.style.setProperty("display", "none", "important");
+  }
+}
+
 function escapeHtml(str) {
   return String(str ?? "")
     .replace(/&/g, "&amp;")
@@ -114,11 +124,11 @@ function navigateStep(stepName) {
   });
 
   if (stepName === "copilot") {
-    elements.setupPanel.hidden = true;
-    elements.livePanel.hidden = false;
+    setPanelVisible(elements.setupPanel, false);
+    setPanelVisible(elements.livePanel, true);
   } else {
-    elements.setupPanel.hidden = false;
-    elements.livePanel.hidden = true;
+    setPanelVisible(elements.setupPanel, true);
+    setPanelVisible(elements.livePanel, false);
   }
 }
 
@@ -127,34 +137,39 @@ async function loadPopup() {
     const settings = await PitchPilotExtension.loadSettings();
     const activeOrigin = (settings.apiOrigin || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
 
-    elements.backendOrigin.value = activeOrigin;
-    elements.extensionToken.value = settings.apiToken || "";
-    elements.rememberToken.checked = Boolean(settings.rememberToken);
-    elements.upgradeLink.href = `${activeOrigin}/pricing`;
-    elements.supportLink.href = `${activeOrigin}/dashboard`;
-    elements.manualTokenLink.href = `${activeOrigin}/extension-access`;
-    elements.autoAnswer.checked = Boolean(settings.autoAnswer);
+    if (elements.backendOrigin) elements.backendOrigin.value = activeOrigin;
+    if (elements.extensionToken) elements.extensionToken.value = settings.apiToken || "";
+    if (elements.rememberToken) elements.rememberToken.checked = Boolean(settings.rememberToken);
+    if (elements.upgradeLink) elements.upgradeLink.href = `${activeOrigin}/pricing`;
+    if (elements.supportLink) elements.supportLink.href = `${activeOrigin}/dashboard`;
+    if (elements.manualTokenLink) elements.manualTokenLink.href = `${activeOrigin}/extension-access`;
+    if (elements.autoAnswer) elements.autoAnswer.checked = Boolean(settings.autoAnswer);
 
     if (settings.apiToken) {
+      setPanelVisible(elements.settingsPanel, false);
       try {
         const payload = await PitchPilotExtension.requestJson("/api/extension/context", {
           ...settings,
           apiOrigin: activeOrigin,
         });
         const credits = Number(payload.user?.credits);
-        elements.creditBadge.textContent = Number.isFinite(credits)
-          ? `${credits.toLocaleString()} credits`
-          : "Active";
+        if (elements.creditBadge) {
+          elements.creditBadge.textContent = Number.isFinite(credits)
+            ? `${credits.toLocaleString()} credits`
+            : "Active";
+        }
 
-        elements.documentSelect.innerHTML = (payload.documents || [])
-          .map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.title)} (${escapeHtml(d.docType)})</option>`)
-          .join("");
+        if (elements.documentSelect) {
+          elements.documentSelect.innerHTML = (payload.documents || [])
+            .map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.title)} (${escapeHtml(d.docType)})</option>`)
+            .join("");
+        }
       } catch (err) {
         console.warn("Context fetch warning:", err);
-        elements.creditBadge.textContent = "Token issue";
+        if (elements.creditBadge) elements.creditBadge.textContent = "Token issue";
       }
     } else {
-      elements.creditBadge.textContent = "Connect token";
+      if (elements.creditBadge) elements.creditBadge.textContent = "Connect token";
     }
   } catch (err) {
     console.error("Popup load failed:", err);
@@ -162,28 +177,30 @@ async function loadPopup() {
 }
 
 elements.settingsToggle?.addEventListener("click", () => {
-  const isSettings = !elements.settingsPanel.hidden;
-  elements.settingsPanel.hidden = isSettings;
-  elements.settingsToggle.setAttribute("aria-expanded", String(!isSettings));
+  const isCurrentlyOpen = !elements.settingsPanel.hidden && elements.settingsPanel.style.display !== "none";
+  setPanelVisible(elements.settingsPanel, !isCurrentlyOpen);
+  elements.settingsToggle.setAttribute("aria-expanded", String(!isCurrentlyOpen));
 });
 
 elements.settingsClose?.addEventListener("click", () => {
-  elements.settingsPanel.hidden = true;
+  setPanelVisible(elements.settingsPanel, false);
+  elements.settingsToggle?.setAttribute("aria-expanded", "false");
 });
 
 elements.saveSettings?.addEventListener("click", async () => {
   try {
-    const cleanOrigin = (elements.backendOrigin.value || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
-    elements.backendOrigin.value = cleanOrigin;
+    const cleanOrigin = (elements.backendOrigin?.value || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
+    if (elements.backendOrigin) elements.backendOrigin.value = cleanOrigin;
 
     await PitchPilotExtension.saveSettings({
       apiOrigin: cleanOrigin,
-      apiToken: elements.extensionToken.value.trim(),
-      rememberToken: elements.rememberToken.checked,
-      autoAnswer: elements.autoAnswer.checked,
+      apiToken: elements.extensionToken?.value.trim() || "",
+      rememberToken: Boolean(elements.rememberToken?.checked),
+      autoAnswer: Boolean(elements.autoAnswer?.checked),
     });
     showSettingsMessage("Saved successfully.", "success");
-    elements.settingsPanel.hidden = true;
+    setPanelVisible(elements.settingsPanel, false);
+    elements.settingsToggle?.setAttribute("aria-expanded", "false");
     await loadPopup();
   } catch (e) {
     showSettingsMessage(e.message, "error");
@@ -457,6 +474,7 @@ window.addEventListener("keydown", (e) => {
 elements.connectAccount?.addEventListener("click", async () => {
   try {
     await PitchPilotExtension.connectAccount();
+    setPanelVisible(elements.settingsPanel, false);
     await loadPopup();
     showSettingsMessage("Connected successfully.", "success");
   } catch (e) {
@@ -464,5 +482,7 @@ elements.connectAccount?.addEventListener("click", async () => {
   }
 });
 
+setPanelVisible(elements.settingsPanel, false);
+navigateStep("context");
 loadPopup();
 updateStealthUI();
