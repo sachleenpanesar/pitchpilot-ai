@@ -1,175 +1,91 @@
-import { NextResponse } from "next/server"
-import { getCurrentUser, verifyExtensionToken } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { refundCredits, reserveCredits } from "@/lib/credits"
-import { getAICopilotResponse } from "@/lib/gemini"
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from "@supabase/supabase-js";
 
-type AnswerRequest = {
-  question?: unknown
-  imageBase64?: unknown
-  mode?: unknown
-  sessionId?: unknown
-  contextText?: unknown
-  documentIds?: unknown
-}
+const apiKey = process.env.GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
 
-const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-function extensionCorsHeaders(origin: string) {
-  return new Headers({
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Max-Age": "600",
-    Vary: "Origin",
-  })
-}
-
-function jsonResponse(request: Request, body: unknown, status = 200) {
-  const headers = new Headers()
-  const origin = request.headers.get("origin")
-  if (origin && EXTENSION_ORIGIN.test(origin)) {
-    extensionCorsHeaders(origin).forEach((value, key) => headers.set(key, value))
-  }
-  return NextResponse.json(body, { status, headers })
-}
-
-export async function OPTIONS(request: Request) {
-  const origin = request.headers.get("origin")
-  if (!origin || !EXTENSION_ORIGIN.test(origin)) {
-    return new Response(null, { status: 403 })
-  }
-  return new Response(null, { status: 204, headers: extensionCorsHeaders(origin) })
-}
-
-export async function POST(request: Request) {
-  const authorization = request.headers.get("authorization")
-  const bearerMatch = authorization?.match(/^Bearer\s+([^\s]+)$/i)
-  if (authorization && !bearerMatch) {
-    return jsonResponse(request, { error: "A valid bearer token is required." }, 401)
-  }
-
-  const user = bearerMatch
-    ? verifyExtensionToken(bearerMatch[1])
-    : await getCurrentUser()
-  if (!user?.userId) {
-    return jsonResponse(request, { error: "Unauthorized or expired extension token." }, 401)
-  }
-
-  const contentLength = Number(request.headers.get("content-length") || 0)
-  if (contentLength > 12_000_000) {
-    return jsonResponse(request, { error: "The screenshot or prompt is too large." }, 413)
-  }
-
-  let body: AnswerRequest
+export async function POST(req: NextRequest) {
   try {
-    body = (await request.json()) as AnswerRequest
-  } catch {
-    return jsonResponse(request, { error: "Send a valid JSON request." }, 400)
-  }
-
-  const question = typeof body.question === "string" ? body.question.trim() : ""
-  const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64 : undefined
-  const mode = typeof body.mode === "string" ? body.mode.slice(0, 40) : "COPILOT"
-  const sessionId = typeof body.sessionId === "string" ? body.sessionId.trim() : ""
-  const contextText = typeof body.contextText === "string" ? body.contextText.trim() : ""
-  if (body.contextText !== undefined && (typeof body.contextText !== "string" || contextText.length > 30_000)) {
-    return jsonResponse(request, { error: "Session context must be text under 30,000 characters." }, 400)
-  }
-  let documentIds: string[] | undefined
-  if (body.documentIds !== undefined) {
-    if (
-      !Array.isArray(body.documentIds) ||
-      body.documentIds.length > 30 ||
-      body.documentIds.some((id) => typeof id !== "string" || id.length > 128)
-    ) {
-      return jsonResponse(request, { error: "Choose up to 30 valid saved documents." }, 400)
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Missing GEMINI_API_KEY on server" },
+        { status: 500 }
+      );
     }
-    documentIds = [...new Set(body.documentIds as string[])]
-  }
-  if (!question || question.length > 12_000) {
-    return jsonResponse(request, { error: "Enter a question under 12,000 characters." }, 400)
-  }
-  if (imageBase64 && (imageBase64.length > 10_000_000 || !/^data:image\/(?:png|jpeg|webp);base64,/i.test(imageBase64))) {
-    return jsonResponse(request, { error: "The screenshot must be a supported image under 10 MB." }, 400)
-  }
-  if (sessionId.length > 128) {
-    return jsonResponse(request, { error: "Session IDs must be 128 characters or fewer." }, 400)
-  }
 
-  let sessionContext = ""
-  if (sessionId) {
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Unauthorized or expired extension token." },
+        { status: 401 }
+      );
+    }
+
+    if (supabaseUrl && supabaseAnonKey) {
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: userData, error: userErr } = await supabase.auth.getUser(token);
+      if (userErr || !userData?.user) {
+        return NextResponse.json(
+          { error: "Unauthorized or expired extension token." },
+          { status: 401 }
+        );
+      }
+    }
+
+    const body = await req.json();
+    const question = (body.question || "").trim();
+    const resumeText = (body.resumeText || "").trim();
+    const jobDescription = (body.jobDescription || "").trim();
+
+    if (!question) {
+      return NextResponse.json({ error: "Question is required." }, { status: 400 });
+    }
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        temperature: 0.35,
+        maxOutputTokens: 320,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
+      } as Record<string, unknown>,
+    });
+
+    const prompt = `You are a real-time interview copilot. Deliver a fast, natural, high-impact spoken answer.
+Question: ${question}
+${resumeText ? `Candidate Resume: ${resumeText.slice(0, 1500)}` : ""}
+${jobDescription ? `Target Job Description: ${jobDescription.slice(0, 1000)}` : ""}
+
+Return strict JSON only:
+{
+  "overview": "2 crisp, direct sentences the candidate can say out loud immediately.",
+  "starStory": "1 concise 2-sentence STAR example from their background (or empty string if not behavioral).",
+  "bullets": ["Short key point 1", "Short key point 2", "Short key point 3"]
+}`;
+
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text().trim();
+
+    let parsed: { overview?: string; starStory?: string; bullets?: string[] } = {};
     try {
-      const session = await prisma.session.findFirst({
-        where: { id: sessionId, userId: user.userId },
-        select: {
-          title: true,
-          companyOrClient: true,
-          mode: true,
-          language: true,
-          transcript: true,
-        },
-      })
-      if (!session) {
-        return jsonResponse(request, { error: "Session was not found or is not accessible." }, 404)
-      }
-      sessionContext = [
-        `Owned session: ${session.title}`,
-        `Company or client: ${session.companyOrClient}`,
-        `Session mode: ${session.mode}`,
-        `Session language: ${session.language}`,
-        session.transcript ? `Recent session transcript:\n${session.transcript.slice(-6000)}` : "",
-      ].filter(Boolean).join("\n")
+      parsed = JSON.parse(raw);
     } catch {
-      return jsonResponse(request, { error: "Could not load the requested session." }, 502)
+      parsed = { overview: raw, starStory: "", bullets: [] };
     }
-  }
 
-  let documents
-  try {
-    documents = await prisma.document.findMany({
-      where: {
-        userId: user.userId,
-        ...(documentIds === undefined ? {} : { id: { in: documentIds } }),
-      },
-    })
-    if (documentIds !== undefined && documents.length !== documentIds.length) {
-      return jsonResponse(request, { error: "One or more selected documents are not accessible." }, 404)
-    }
-  } catch {
-    return jsonResponse(request, { error: "Could not load the selected documents." }, 502)
-  }
-
-  const reservation = await reserveCredits(user.userId, 1)
-  if (!reservation.ok) {
-    if (reservation.reason === "missing") {
-      return jsonResponse(request, { error: "Unauthorized or expired extension token." }, 401)
-    }
-    return jsonResponse(request, { error: "Insufficient credits" }, 402)
-  }
-
-  try {
-    const vaultContext = [
-      ...documents.map((document) => `[${document.docType}] ${document.title}: ${document.content}`),
-      contextText ? `Session context:\n${contextText}` : "",
-      sessionContext,
-    ].filter(Boolean).join("\n\n")
-
-    const data = await getAICopilotResponse({
-      question,
-      imageBase64,
-      vaultContext,
-      mode,
-    })
-    return jsonResponse(request, { success: true, data })
-  } catch {
-    if (reservation.charged) {
-      try {
-        await refundCredits(user.userId, 1)
-      } catch (refundError) {
-        console.error("Copilot credit refund failed:", refundError)
-      }
-    }
-    return jsonResponse(request, { error: "Could not generate an answer. Check server configuration and try again." }, 502)
+    return NextResponse.json({
+      overview: parsed.overview || "",
+      starStory: parsed.starStory || "",
+      bullets: Array.isArray(parsed.bullets) ? parsed.bullets : [],
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to generate answer";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -4,491 +4,499 @@
   <meta charset="UTF-8" />
   <title>PitchPilot Stealth HUD</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg-alpha: 0.9;
-      --bg-color: rgba(10, 15, 28, var(--bg-alpha));
-      --card-bg: rgba(30, 41, 59, 0.55);
-      --border-color: rgba(56, 189, 248, 0.28);
-      --accent: #38bdf8;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --answer-font-size: 13px;
+      --bg-opacity: 0.92;
+      --font-size: 13.5px;
     }
-    body.vscode-mode {
-      --bg-color: rgba(30, 30, 30, var(--bg-alpha));
-      --card-bg: rgba(37, 37, 38, 0.8);
-      --border-color: rgba(86, 156, 214, 0.35);
-      --accent: #569cd6;
-      --text-main: #d4d4d4;
-      --text-muted: #858585;
-      font-family: "Consolas", "Courier New", monospace;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      padding: 12px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg-color);
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
+      background: transparent;
+      color: #f8fafc;
+      overflow: hidden;
+      user-select: none;
+    }
+    #hud {
+      width: 100vw;
       height: 100vh;
+      background: rgba(10, 15, 28, var(--bg-opacity));
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 14px;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-      backdrop-filter: blur(12px);
-      transition: background 0.2s ease, border-color 0.2s ease;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
     }
-    .header {
+    #titlebar {
       -webkit-app-region: drag;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding-bottom: 8px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent);
-      gap: 6px;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: rgba(15, 23, 42, 0.9);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+      border-top-left-radius: 14px;
+      border-top-right-radius: 14px;
     }
-    .header-left {
+    .brand {
       display: flex;
       align-items: center;
       gap: 7px;
-      min-width: 0;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #38bdf8;
     }
-    .header-left span#hudTitle {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .live-dot {
-      flex-shrink: 0;
+    .dot {
       width: 7px;
       height: 7px;
       border-radius: 50%;
       background: #10b981;
       box-shadow: 0 0 8px #10b981;
     }
-    .header-actions {
+    .controls {
       -webkit-app-region: no-drag;
       display: flex;
       align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
+      gap: 5px;
     }
-    .icon-btn {
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: var(--text-muted);
-      padding: 3px 6px;
-      border-radius: 6px;
-      font-size: 10px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .icon-btn:hover {
-      background: rgba(255, 255, 255, 0.14);
-      color: #fff;
-    }
-    .close-btn {
-      background: rgba(239, 68, 68, 0.18);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-      padding: 3px 8px;
-      border-radius: 6px;
+    button.ctrl-btn {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(71, 85, 105, 0.7);
+      color: #cbd5e1;
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 6px;
       cursor: pointer;
     }
-    .close-btn:hover {
-      background: #dc2626;
+    button.ctrl-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
       color: #fff;
     }
-    .controls {
+    button.ctrl-btn.active {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: #10b981;
+      color: #6ee7b7;
+    }
+    button#closeBtn:hover {
+      background: rgba(239, 68, 68, 0.35);
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+    #inputRow {
+      -webkit-app-region: no-drag;
       display: flex;
       gap: 6px;
-      margin-bottom: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.45);
     }
-    .btn {
-      background: rgba(30, 41, 59, 0.9);
-      color: #f8fafc;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 8px;
-      padding: 7px 10px;
-      font-size: 11px;
-      cursor: pointer;
-      font-weight: 600;
-      white-space: nowrap;
-      transition: all 0.15s ease;
-    }
-    .btn:hover { border-color: var(--accent); }
-    .btn.primary { background: #0284c7; border-color: #38bdf8; color: #fff; }
-    .btn.primary:hover { background: #0369a1; }
-    .btn.listening {
-      background: #dc2626;
-      border-color: #f87171;
-      animation: pulseRed 1.5s infinite;
-    }
-    @keyframes pulseRed {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-      50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
-    }
-    input {
+    #promptInput {
       flex: 1;
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(71, 85, 105, 0.8);
       border-radius: 8px;
-      color: #fff;
+      color: #f8fafc;
       padding: 7px 10px;
-      font-size: 12px;
-      min-width: 0;
+      font-size: 12.5px;
       outline: none;
     }
-    input:focus { border-color: var(--accent); }
-    .status-bar {
+    #promptInput:focus { border-color: #38bdf8; }
+    #askBtn {
+      background: linear-gradient(135deg, #2563eb, #0284c7);
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 0 12px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #listenBtn {
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid rgba(71, 85, 105, 0.85);
+      color: #e2e8f0;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 0 10px;
+      border-radius: 8px;
+      cursor: pointer;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      font-size: 10.5px;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-      padding: 0 2px;
-      gap: 8px;
+      gap: 4px;
     }
-    .answer-pane {
+    #listenBtn.listening {
+      background: rgba(220, 38, 38, 0.25);
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+    #meterWrap {
+      height: 4px;
+      width: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      overflow: hidden;
+    }
+    #meterBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981, #38bdf8);
+      transition: width 0.08s linear;
+    }
+    #content {
+      -webkit-app-region: no-drag;
       flex: 1;
+      padding: 12px 14px;
       overflow-y: auto;
-      font-size: var(--answer-font-size);
+      font-size: var(--font-size);
       line-height: 1.55;
-      padding-right: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      color: #f1f5f9;
+      user-select: text;
     }
-    .answer-pane::-webkit-scrollbar { width: 5px; }
-    .answer-pane::-webkit-scrollbar-track { background: transparent; }
-    .answer-pane::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.25);
-      border-radius: 999px;
+    .question-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: #38bdf8;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed rgba(56, 189, 248, 0.3);
     }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      padding: 10px 12px;
-    }
-    .card-title {
+    .section-title {
       font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin-bottom: 6px;
+      color: #34d399;
+      margin-top: 10px;
+      margin-bottom: 4px;
+    }
+    .bullet-list { padding-left: 16px; margin-top: 4px; }
+    .bullet-list li { margin-bottom: 5px; }
+    .placeholder { color: #94a3b8; font-size: 12.5px; line-height: 1.6; }
+    #footer {
+      padding: 5px 12px;
+      background: rgba(15, 23, 42, 0.85);
+      border-top: 1px solid rgba(51, 65, 85, 0.55);
+      border-bottom-left-radius: 14px;
+      border-bottom-right-radius: 14px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-    }
-    .star-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-    .star-badge {
-      flex-shrink: 0;
-      width: 20px;
-      height: 20px;
-      border-radius: 5px;
-      background: rgba(74, 222, 128, 0.15);
-      color: #4ade80;
-      font-weight: 700;
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 2px;
-    }
-    pre {
-      background: #020617;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      padding: 9px;
-      border-radius: 8px;
-      overflow-x: auto;
-      font-family: "Consolas", monospace;
-      font-size: calc(var(--answer-font-size) - 1px);
-      color: #e2e8f0;
-    }
-    .empty-state {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 12px;
-      padding: 28px 14px;
-      border: 1px dashed rgba(148, 163, 184, 0.2);
-      border-radius: 10px;
+      font-size: 10.5px;
+      color: #94a3b8;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-left">
-      <span class="live-dot"></span>
-      <span id="hudTitle">PitchPilot HUD</span>
+  <div id="hud">
+    <div id="titlebar">
+      <div class="brand">
+        <span class="dot"></span>
+        <span>PitchPilot HUD</span>
+      </div>
+      <div class="controls">
+        <button class="ctrl-btn" id="fontDown" title="Decrease font">A-</button>
+        <button class="ctrl-btn" id="fontUp" title="Increase font">A+</button>
+        <button class="ctrl-btn" id="resizeBtn" title="Toggle compact/wide">Wide</button>
+        <button class="ctrl-btn" id="opacityBtn" title="Cycle opacity">◐ 92%</button>
+        <button class="ctrl-btn" id="scrollLockBtn" title="Pause auto-scroll">VS</button>
+        <button class="ctrl-btn" id="clearBtn" title="Clear screen">Clear</button>
+        <button class="ctrl-btn" id="hideBtn" title="Hide HUD (Ctrl+Shift+H)">—</button>
+        <button class="ctrl-btn" id="closeBtn" title="Quit PitchPilot HUD completely">✕</button>
+      </div>
     </div>
-    <div class="header-actions">
-      <button class="icon-btn" id="fontDownBtn" title="Decrease Font Size">A-</button>
-      <button class="icon-btn" id="fontUpBtn" title="Increase Font Size">A+</button>
-      <button class="icon-btn" id="sizeBtn" title="Toggle Compact / Wide Window">Wide</button>
-      <button class="icon-btn" id="opacityBtn" title="Cycle Opacity">◐ 90%</button>
-      <button class="icon-btn" id="themeBtn" title="Toggle VS Code Disguise">VS</button>
-      <button class="icon-btn" id="clearBtn" title="Clear Answer">Clear</button>
-      <button class="close-btn" id="closeHudBtn" title="Quit Stealth HUD">✕</button>
+
+    <div id="inputRow">
+      <button id="listenBtn">🎤 Listen</button>
+      <input id="promptInput" type="text" placeholder="Live Teams audio or type question..." />
+      <button id="askBtn">Ask AI</button>
     </div>
-  </div>
 
-  <div class="controls">
-    <button id="listenBtn" class="btn">🎤 Listen</button>
-    <input id="promptInput" placeholder="Ask or capture live question..." />
-    <button id="askBtn" class="btn primary">Ask AI</button>
-  </div>
+    <div id="meterWrap"><div id="meterBar"></div></div>
 
-  <div class="status-bar">
-    <span id="statusText">Ready — Sync JD & CV from Add-in</span>
-    <span id="shortcutHint">Ctrl+Shift+H Hide • Ctrl+Alt+Arrows Move</span>
-  </div>
+    <div id="content">
+      <div class="placeholder">
+        <strong>Stealth HUD Ready (Fast Mode).</strong><br /><br />
+        • Click <strong>🎤 Listen</strong> to capture Windows system audio directly.<br />
+        • Or type any question above and press <strong>Enter</strong>.<br />
+        • Click <strong>—</strong> to hide (<strong>Ctrl+Shift+H</strong>) or <strong>✕</strong> to quit completely.
+      </div>
+    </div>
 
-  <div class="answer-pane" id="answerBox">
-    <div class="empty-state">
-      Tailored summaries, STAR stories, and code solutions will appear here invisibly during your call.
+    <div id="footer">
+      <span id="statusText">Ready • Stealth Protected</span>
+      <span>Ctrl+Shift+H Hide • Ctrl+Alt+Arrows Move</span>
     </div>
   </div>
 
   <script>
-    let context = JSON.parse(localStorage.getItem('pp_stealth_ctx') || '{}');
+    const API_BASE = 'https://pitchpilot-ai-ruddy.vercel.app';
+    let fontSize = 13.5;
+    let opacities = [0.92, 0.72, 0.50, 0.98];
+    let opacityIdx = 0;
+    let isWide = false;
+    let autoScroll = true;
+
+    // Persist auth token & context across restarts
+    let authToken = localStorage.getItem('pp_token') || null;
+    let resumeText = localStorage.getItem('pp_resume') || '';
+    let jobDescription = localStorage.getItem('pp_jd') || '';
+
+    // Fast 8kHz WAV PCM System Audio Capture State
     let isListening = false;
-    let mediaStream = null;
-    let recordLoopActive = false;
+    let displayStream = null;
+    let audioCtx = null;
+    let processorNode = null;
+    let pcmChunks = [];
+    let pcmSampleCount = 0;
+    let captureTimer = null;
     let accumulatedQuestion = '';
     let silenceCount = 0;
 
-    const opacities = [0.9, 0.72, 0.5];
-    let opacityIdx = 0;
-    let isWide = false;
-
-    let fontSize = Number(localStorage.getItem('pp_hud_font_size')) || 13;
-    document.documentElement.style.setProperty('--answer-font-size', `${fontSize}px`);
-
-    if (context.apiToken) {
-      document.getElementById('statusText').textContent = 'JD & CV Context Synced ✅';
-    }
-
-    document.getElementById('fontDownBtn').addEventListener('click', () => {
-      fontSize = Math.max(11, fontSize - 1);
-      document.documentElement.style.setProperty('--answer-font-size', `${fontSize}px`);
-      localStorage.setItem('pp_hud_font_size', String(fontSize));
-    });
-
-    document.getElementById('fontUpBtn').addEventListener('click', () => {
-      fontSize = Math.min(18, fontSize + 1);
-      document.documentElement.style.setProperty('--answer-font-size', `${fontSize}px`);
-      localStorage.setItem('pp_hud_font_size', String(fontSize));
-    });
-
-    document.getElementById('sizeBtn').addEventListener('click', () => {
-      isWide = !isWide;
-      document.getElementById('sizeBtn').textContent = isWide ? 'Compact' : 'Wide';
-      if (window.stealthAPI?.resizeWindow) {
-        window.stealthAPI.resizeWindow(isWide ? 640 : 440, isWide ? 680 : 580);
-      }
-    });
-
-    document.getElementById('opacityBtn').addEventListener('click', () => {
-      opacityIdx = (opacityIdx + 1) % opacities.length;
-      const val = opacities[opacityIdx];
-      document.documentElement.style.setProperty('--bg-alpha', String(val));
-      document.getElementById('opacityBtn').textContent = `◐ ${Math.round(val * 100)}%`;
-    });
-
-    document.getElementById('themeBtn').addEventListener('click', () => {
-      const isVs = document.body.classList.toggle('vscode-mode');
-      document.getElementById('hudTitle').textContent = isVs ? 'notes.md — VS Code' : 'PitchPilot HUD';
-    });
-
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      document.getElementById('promptInput').value = '';
-      document.getElementById('answerBox').innerHTML =
-        '<div class="empty-state">Cleared. Ready for the next question.</div>';
-    });
-
-    document.getElementById('closeHudBtn').addEventListener('click', () => {
-      if (window.stealthAPI?.quitApp) window.stealthAPI.quitApp();
-      else window.close();
-    });
-
-    window.stealthAPI?.onSyncContext((data) => {
-      context = { ...context, ...data };
-      localStorage.setItem('pp_stealth_ctx', JSON.stringify(context));
-      document.getElementById('statusText').textContent = 'JD & CV Synced from Add-in ✅';
-    });
-
-    window.stealthAPI?.onNewPrompt((data) => {
-      if (data.question) document.getElementById('promptInput').value = data.question;
-      if (data.html) document.getElementById('answerBox').innerHTML = `<div class="card">${data.html}</div>`;
-    });
-
-    window.stealthAPI?.onClickThrough((locked) => {
-      document.getElementById('shortcutHint').textContent = locked
-        ? '🔒 Click-Through ON (Ctrl+Shift+T)'
-        : 'Ctrl+Shift+H Hide • Ctrl+Alt+Arrows Move';
-    });
+    // Filter <noise>, [music], (silence), and short filler sounds
+    const FILLER_REGEX = /^(<[^>]+>|\[[^\]]+\]|\([^\)]+\)|oh|ah|uh|um|hmm|yeah|yes|no|okay|ok|right|sure|thanks|thank you)\.?$/i;
+    const contentEl = document.getElementById('content');
+    const statusEl = document.getElementById('statusText');
+    const promptInput = document.getElementById('promptInput');
+    const meterBar = document.getElementById('meterBar');
 
     function escapeHtml(str) {
-      return String(str ?? '')
+      return String(str || '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replace(/>/g, '&gt;');
     }
 
-    async function askCopilot(question) {
-      if (!question || !question.trim()) return;
-      const answerBox = document.getElementById('answerBox');
-      answerBox.innerHTML = '<div class="card" style="color:#38bdf8;">✨ Generating tailored response…</div>';
-
-      const origin = (context.apiOrigin || 'https://pitchpilot-ai-ruddy.vercel.app').replace(/\/+$/, '');
-      try {
-        const res = await fetch(`${origin}/api/copilot/answer`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(context.apiToken ? { Authorization: `Bearer ${context.apiToken}` } : {}),
-          },
-          body: JSON.stringify({
-            question: question.trim(),
-            mode: context.mode || 'INTERVIEW',
-            contextText: context.contextText || '',
-            documentIds: context.documentIds || [],
-          }),
-        });
-        const json = await res.json();
-        const d = json.data || json;
-        if (json.error) throw new Error(json.error);
-
-        let html = `<div class="card">
-          <div class="card-title" style="color:#38bdf8;">💡 Overview / Key Answer</div>
-          <div>${escapeHtml(d.summary || 'No response.')}</div>
-        </div>`;
-
-        if (d.starAnswer && (d.starAnswer.situation || d.starAnswer.task)) {
-          html += `<div class="card">
-            <div class="card-title" style="color:#4ade80;">⭐ STAR Story</div>
-            <div class="star-row"><span class="star-badge">S</span><span>${escapeHtml(d.starAnswer.situation)}</span></div>
-            <div class="star-row"><span class="star-badge">T</span><span>${escapeHtml(d.starAnswer.task)}</span></div>
-            <div class="star-row"><span class="star-badge">A</span><span>${escapeHtml(d.starAnswer.action)}</span></div>
-            <div class="star-row"><span class="star-badge">R</span><span>${escapeHtml(d.starAnswer.result)}</span></div>
-          </div>`;
-        }
-
-        if (d.codingSolution && d.codingSolution.code) {
-          const codeId = 'code-' + Date.now();
-          html += `<div class="card">
-            <div class="card-title" style="color:#c084fc;">
-              <span>💻 ${escapeHtml(d.codingSolution.language || 'Code Solution')}</span>
-              <button class="icon-btn" onclick="navigator.clipboard.writeText(document.getElementById('${codeId}').innerText)">Copy</button>
-            </div>
-            <pre><code id="${codeId}">${escapeHtml(d.codingSolution.code)}</code></pre>
-            <div style="font-size:11px;color:#94a3b8;margin-top:6px;">Time: ${escapeHtml(d.codingSolution.timeComplexity || 'O(n)')} • Space: ${escapeHtml(d.codingSolution.spaceComplexity || 'O(1)')}</div>
-          </div>`;
-        }
-
-        if (d.suggestedPhrases && d.suggestedPhrases.length > 0) {
-          html += `<div class="card">
-            <div class="card-title" style="color:#fbbf24;">💬 Speaking Points</div>
-            <ul style="margin-left:16px;display:grid;gap:4px;">
-              ${d.suggestedPhrases.map((p) => `<li>"${escapeHtml(p)}"</li>`).join('')}
-            </ul>
-          </div>`;
-        }
-
-        answerBox.innerHTML = html;
-      } catch (err) {
-        answerBox.innerHTML = `<div class="card" style="color:#f87171;">Error: ${escapeHtml(err.message)}</div>`;
+    function renderAnswer(payload) {
+      const q = payload.question ? `<div class="question-tag">Q: ${escapeHtml(payload.question)}</div>` : '';
+      let html = q;
+      if (payload.overview || payload.answer) {
+        html += `<div class="section-title">Direct Answer</div><div>${escapeHtml(payload.overview || payload.answer)}</div>`;
       }
+      if (payload.starStory) {
+        html += `<div class="section-title">STAR Example</div><div>${escapeHtml(payload.starStory)}</div>`;
+      }
+      if (Array.isArray(payload.bullets) && payload.bullets.length) {
+        html += `<div class="section-title">Key Talking Points</div><ul class="bullet-list">${payload.bullets
+          .map((b) => `<li>${escapeHtml(b)}</li>`)
+          .join('')}</ul>`;
+      }
+      if (payload.error) {
+        html += `<div style="color:#f87171;margin-top:8px;">Error: ${escapeHtml(payload.error)}</div>`;
+      }
+      contentEl.innerHTML = html || '<div class="placeholder">Waiting for response...</div>';
+      if (autoScroll) contentEl.scrollTop = 0;
     }
 
-    document.getElementById('askBtn').addEventListener('click', () => {
-      askCopilot(document.getElementById('promptInput').value);
-    });
-
-    document.getElementById('promptInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') askCopilot(document.getElementById('promptInput').value);
-    });
-
-    async function transcribeChunk(blob) {
-      const origin = (context.apiOrigin || 'https://pitchpilot-ai-ruddy.vercel.app').replace(/\/+$/, '');
-      const formData = new FormData();
-      formData.append('audio', blob, 'chunk.webm');
-      const res = await fetch(`${origin}/api/copilot/transcribe`, { method: 'POST', body: formData });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (data.text || '').trim();
-    }
-
-    function recordOneChunk(stream, durationMs) {
-      return new Promise((resolve) => {
-        const chunks = [];
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-        recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = () => resolve(new Blob(chunks, { type: 'audio/webm' }));
-        recorder.start();
-        setTimeout(() => { if (recorder.state !== 'inactive') recorder.stop(); }, durationMs);
+    if (window.stealthHUD) {
+      window.stealthHUD.onPayload((data) => {
+        if (data.token) {
+          authToken = data.token;
+          localStorage.setItem('pp_token', authToken);
+          statusEl.textContent = 'Account token synced';
+        }
+        if (data.resumeText) {
+          resumeText = data.resumeText;
+          localStorage.setItem('pp_resume', resumeText);
+        }
+        if (data.jobDescription) {
+          jobDescription = data.jobDescription;
+          localStorage.setItem('pp_jd', jobDescription);
+        }
+        if (data.question || data.answer || data.overview || data.bullets || data.error) {
+          renderAnswer(data);
+          statusEl.textContent = 'Live answer updated';
+        }
       });
     }
 
-    async function runCaptureLoop() {
-      const statusEl = document.getElementById('statusText');
-      const inputEl = document.getElementById('promptInput');
-      recordLoopActive = true;
+    async function askCopilot(questionText) {
+      const q = (questionText || promptInput.value || '').trim();
+      if (!q || FILLER_REGEX.test(q)) return;
 
-      while (isListening && mediaStream) {
-        try {
-          const blob = await recordOneChunk(mediaStream, 3500);
-          if (!isListening) break;
-          statusEl.textContent = 'Transcribing…';
-          const text = await transcribeChunk(blob);
-          if (text && text.length > 2) {
-            silenceCount = 0;
-            accumulatedQuestion = (accumulatedQuestion + ' ' + text).trim();
-            inputEl.value = accumulatedQuestion;
-            statusEl.textContent = 'Captured speech…';
-          } else {
-            silenceCount++;
-            statusEl.textContent = 'Listening…';
-            if (accumulatedQuestion && silenceCount >= 1) {
-              const finalQ = accumulatedQuestion;
-              accumulatedQuestion = '';
-              silenceCount = 0;
-              askCopilot(finalQ);
-            }
-          }
-        } catch (err) {
-          statusEl.textContent = `Mic sync retry: ${err.message}`;
-          await new Promise((r) => setTimeout(r, 2000));
+      statusEl.textContent = 'Generating fast AI response…';
+      contentEl.innerHTML = `<div class="question-tag">Q: ${escapeHtml(q)}</div><div class="placeholder">Thinking…</div>`;
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+        const res = await fetch(`${API_BASE}/api/copilot/answer`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ question: q, resumeText, jobDescription }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          const errMsg = data.error || `Server error (${res.status})`;
+          renderAnswer({ question: q, error: errMsg });
+          statusEl.textContent = res.status === 401
+            ? 'Token expired — click Start Live Copilot in Chrome'
+            : `Answer error (${res.status})`;
+          return;
+        }
+        renderAnswer({ question: q, ...data });
+        statusEl.textContent = 'Answer ready';
+      } catch (err) {
+        renderAnswer({ question: q, error: err.message });
+        statusEl.textContent = 'Network error';
+      }
+    }
+
+    // Downsample Float32 PCM to 8kHz Mono WAV Blob (~32 KB per 2s chunk for ultra-fast upload)
+    function encodeWav8k(float32Buffers, totalSamples, inputSampleRate) {
+      const targetRate = 8000;
+      const ratio = inputSampleRate / targetRate;
+      const outLength = Math.floor(totalSamples / ratio);
+      const pcm16 = new Int16Array(outLength);
+
+      let srcIdx = 0;
+      let bufIdx = 0;
+
+      for (let i = 0; i < outLength; i++) {
+        const targetPos = Math.floor(i * ratio);
+        while (bufIdx < float32Buffers.length && srcIdx + float32Buffers[bufIdx].length <= targetPos) {
+          srcIdx += float32Buffers[bufIdx].length;
+          bufIdx++;
+        }
+        if (bufIdx < float32Buffers.length) {
+          const offsetInBuf = targetPos - srcIdx;
+          const s = Math.max(-1, Math.min(1, float32Buffers[bufIdx][offsetInBuf]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
       }
-      recordLoopActive = false;
+
+      const wavBuffer = new ArrayBuffer(44 + pcm16.byteLength);
+      const view = new DataView(wavBuffer);
+      const writeStr = (off, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+      };
+
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + pcm16.byteLength, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, targetRate, true);
+      view.setUint32(28, targetRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, pcm16.byteLength, true);
+
+      new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcm16.buffer));
+      return new Blob([wavBuffer], { type: 'audio/wav' });
+    }
+
+    async function flushAndTranscribe() {
+      if (!isListening || pcmSampleCount === 0) return;
+
+      const buffers = pcmChunks;
+      const samples = pcmSampleCount;
+      const sampleRate = audioCtx ? audioCtx.sampleRate : 48000;
+      pcmChunks = [];
+      pcmSampleCount = 0;
+
+      let sumSq = 0;
+      let count = 0;
+      for (const b of buffers) {
+        for (let i = 0; i < b.length; i += 10) {
+          sumSq += b[i] * b[i];
+          count++;
+        }
+      }
+      const rms = count ? Math.sqrt(sumSq / count) : 0;
+      if (rms < 0.0025) {
+        silenceCount++;
+        statusEl.textContent = 'Listening (silence)…';
+        if (accumulatedQuestion && silenceCount >= 1) {
+          const finalQ = accumulatedQuestion;
+          accumulatedQuestion = '';
+          silenceCount = 0;
+          askCopilot(finalQ);
+        }
+        return;
+      }
+
+      const wavBlob = encodeWav8k(buffers, samples, sampleRate);
+      const kb = Math.max(1, Math.round(wavBlob.size / 1024));
+      statusEl.textContent = `Transcribing (${kb} KB)…`;
+
+      const formData = new FormData();
+      formData.append('audio', wavBlob, 'speech.wav');
+
+      const headers = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/copilot/transcribe`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          statusEl.textContent = `Transcribe error: ${data.error || res.status}`;
+          return;
+        }
+
+        const rawText = (data.text || '').replace(/<[^>]+>|\[[^\]]+\]/g, '').trim();
+        statusEl.textContent = rawText ? `Heard: "${rawText}"` : 'Listening…';
+
+        if (rawText && rawText.length >= 2 && !FILLER_REGEX.test(rawText)) {
+          silenceCount = 0;
+          accumulatedQuestion = (accumulatedQuestion + ' ' + rawText).trim();
+          promptInput.value = accumulatedQuestion;
+
+          const wordCount = accumulatedQuestion.split(/\s+/).length;
+          if (accumulatedQuestion.endsWith('?') || wordCount >= 9) {
+            const finalQ = accumulatedQuestion;
+            accumulatedQuestion = '';
+            silenceCount = 0;
+            askCopilot(finalQ);
+          }
+        } else {
+          silenceCount++;
+          if (accumulatedQuestion && silenceCount >= 1) {
+            const finalQ = accumulatedQuestion;
+            accumulatedQuestion = '';
+            silenceCount = 0;
+            askCopilot(finalQ);
+          }
+        }
+      } catch (err) {
+        statusEl.textContent = `Network error: ${err.message}`;
+      }
+    }
+
+    function stopSystemAudio() {
+      isListening = false;
+      if (captureTimer) {
+        clearInterval(captureTimer);
+        captureTimer = null;
+      }
+      meterBar.style.width = '0%';
+      if (processorNode) {
+        processorNode.disconnect();
+        processorNode = null;
+      }
+      if (audioCtx) {
+        audioCtx.close().catch(() => {});
+        audioCtx = null;
+      }
+      if (displayStream) {
+        displayStream.getTracks().forEach((t) => t.stop());
+        displayStream = null;
+      }
+      pcmChunks = [];
+      pcmSampleCount = 0;
     }
 
     document.getElementById('listenBtn').addEventListener('click', async () => {
       const btn = document.getElementById('listenBtn');
-      const statusEl = document.getElementById('statusText');
-
       if (isListening) {
-        isListening = false;
-        if (mediaStream) {
-          mediaStream.getTracks().forEach((t) => t.stop());
-          mediaStream = null;
-        }
+        stopSystemAudio();
         btn.textContent = '🎤 Listen';
         btn.classList.remove('listening');
         statusEl.textContent = 'Paused.';
@@ -496,17 +504,101 @@
       }
 
       try {
-        statusEl.textContent = 'Opening mic…';
-        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        statusEl.textContent = 'Connecting system audio…';
+        displayStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+
+        displayStream.getVideoTracks().forEach((t) => t.stop());
+        const audioTracks = displayStream.getAudioTracks();
+        if (!audioTracks.length) {
+          throw new Error('No system audio track found.');
+        }
+
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        await audioCtx.resume();
+        const source = audioCtx.createMediaStreamSource(new MediaStream(audioTracks));
+        processorNode = audioCtx.createScriptProcessor(4096, 1, 1);
+
+        processorNode.onaudioprocess = (e) => {
+          if (!isListening) return;
+          const input = e.inputBuffer.getChannelData(0);
+          const copy = new Float32Array(input.length);
+          let peak = 0;
+          for (let i = 0; i < input.length; i++) {
+            copy[i] = input[i];
+            const abs = Math.abs(input[i]);
+            if (abs > peak) peak = abs;
+          }
+          pcmChunks.push(copy);
+          pcmSampleCount += copy.length;
+          meterBar.style.width = `${Math.min(100, Math.round(peak * 350))}%`;
+        };
+
+        source.connect(processorNode);
+        processorNode.connect(audioCtx.destination);
+
         isListening = true;
         accumulatedQuestion = '';
         silenceCount = 0;
         btn.textContent = '⏹ Stop';
         btn.classList.add('listening');
-        statusEl.textContent = 'Listening continuously…';
-        if (!recordLoopActive) runCaptureLoop();
+        statusEl.textContent = 'Listening to Teams audio…';
+
+        captureTimer = setInterval(flushAndTranscribe, 2000);
       } catch (err) {
-        statusEl.textContent = `Mic error: ${err.message}`;
+        stopSystemAudio();
+        statusEl.textContent = `System audio error: ${err.message}`;
+      }
+    });
+
+    document.getElementById('askBtn').addEventListener('click', () => askCopilot());
+    promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') askCopilot();
+    });
+
+    document.getElementById('fontUp').addEventListener('click', () => {
+      fontSize = Math.min(20, fontSize + 1);
+      document.documentElement.style.setProperty('--font-size', `${fontSize}px`);
+    });
+    document.getElementById('fontDown').addEventListener('click', () => {
+      fontSize = Math.max(11, fontSize - 1);
+      document.documentElement.style.setProperty('--font-size', `${fontSize}px`);
+    });
+    document.getElementById('opacityBtn').addEventListener('click', (e) => {
+      opacityIdx = (opacityIdx + 1) % opacities.length;
+      const val = opacities[opacityIdx];
+      document.documentElement.style.setProperty('--bg-opacity', val);
+      e.target.textContent = `◐ ${Math.round(val * 100)}%`;
+    });
+    document.getElementById('resizeBtn').addEventListener('click', (e) => {
+      isWide = !isWide;
+      e.target.textContent = isWide ? 'Compact' : 'Wide';
+      if (window.stealthHUD) {
+        window.stealthHUD.resizeHUD(isWide ? 620 : 440, isWide ? 420 : 320);
+      }
+    });
+    document.getElementById('scrollLockBtn').addEventListener('click', (e) => {
+      autoScroll = !autoScroll;
+      e.target.classList.toggle('active', !autoScroll);
+      e.target.textContent = autoScroll ? 'VS' : 'Paused';
+    });
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      accumulatedQuestion = '';
+      promptInput.value = '';
+      contentEl.innerHTML = '<div class="placeholder">Screen cleared. Ready for next question.</div>';
+      statusEl.textContent = 'Cleared';
+    });
+    document.getElementById('hideBtn').addEventListener('click', () => {
+      if (window.stealthHUD) window.stealthHUD.toggleVisibility();
+    });
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      stopSystemAudio();
+      if (window.stealthHUD && window.stealthHUD.quitApp) {
+        window.stealthHUD.quitApp();
+      } else {
+        window.close();
       }
     });
   </script>
