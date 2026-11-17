@@ -13,16 +13,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "Unauthorized or expired extension token." },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json();
     const question = (body.question || "").trim();
     const resumeText = (body.resumeText || "").trim();
