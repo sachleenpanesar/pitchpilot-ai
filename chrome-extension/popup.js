@@ -36,7 +36,7 @@ const elements = {
   backToSetup: document.getElementById("back-to-setup"),
   questionInput: document.getElementById("question-input"),
   askBtn: document.getElementById("ask-btn"),
-  listenToggle: document.getElementById("listen-toggle-btn"),
+  listenToggle: document.getElementById("listen-toggle-btn") || Array.from(document.querySelectorAll("button")).find((b) => b.textContent.includes("Start Listening")),
   solveScreen: document.getElementById("solve-screen-btn"),
   aiResponse: document.getElementById("ai-response-container"),
   liveStatusText: document.getElementById("live-status-text"),
@@ -78,6 +78,12 @@ async function pushToStealthHUD(questionText, renderedHtml) {
     });
   } catch {
     // Stealth desktop HUD is not running; extension popup still renders normally
+  }
+}
+
+function setLiveStatus(text) {
+  if (elements.liveStatusText) {
+    elements.liveStatusText.textContent = text;
   }
 }
 
@@ -270,7 +276,7 @@ async function triggerAiQuery(promptText) {
 
   const settings = await PitchPilotExtension.loadSettings();
   const activeOrigin = (settings.apiOrigin || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
-  const selectedDocIds = Array.from(elements.documentSelect.selectedOptions).map((o) => o.value);
+  const selectedDocIds = Array.from(elements.documentSelect?.selectedOptions || []).map((o) => o.value);
 
   try {
     const res = await PitchPilotExtension.requestJson(
@@ -281,7 +287,7 @@ async function triggerAiQuery(promptText) {
         body: JSON.stringify({
           question: promptText,
           mode: currentSession.type,
-          contextText: elements.jobDescription.value,
+          contextText: elements.jobDescription?.value || "",
           documentIds: selectedDocIds,
           sessionId: currentSession.sessionId,
         }),
@@ -336,20 +342,46 @@ elements.questionInput?.addEventListener("keydown", (e) => {
   }
 });
 
-function toggleListening() {
+async function ensureMicPermission() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return true;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    return true;
+  } catch (err) {
+    console.warn("Microphone permission needed:", err);
+    setLiveStatus("Opening tab to grant mic permission…");
+    if (chrome.tabs && chrome.tabs.create) {
+      chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?grantMic=1") });
+    }
+    return false;
+  }
+}
+
+async function toggleListening() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    alert("Speech recognition is not supported in this browser.");
+    setLiveStatus("Speech recognition not supported in this browser.");
     return;
   }
 
   if (isListening) {
-    if (recognition) recognition.stop();
     isListening = false;
-    elements.listenToggle.textContent = "🎤 Start Listening";
-    elements.liveStatusText.textContent = "Live Copilot Active (Paused)";
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch {}
+    }
+    if (elements.listenToggle) elements.listenToggle.textContent = "🎤 Start Listening";
+    setLiveStatus("Live Copilot Active (Paused)");
     return;
   }
+
+  setLiveStatus("Requesting microphone access…");
+  const permitted = await ensureMicPermission();
+  if (!permitted) return;
 
   recognition = new SpeechRecognition();
   recognition.continuous = true;
@@ -358,8 +390,8 @@ function toggleListening() {
 
   recognition.onstart = () => {
     isListening = true;
-    elements.listenToggle.textContent = "⏹ Stop Listening";
-    elements.liveStatusText.textContent = "Listening for meeting speech…";
+    if (elements.listenToggle) elements.listenToggle.textContent = "⏹ Stop Listening";
+    setLiveStatus("Listening for meeting speech…");
   };
 
   recognition.onresult = (event) => {
@@ -367,12 +399,14 @@ function toggleListening() {
     for (let i = event.resultIndex; i < event.results.length; ++i) {
       transcript += event.results[i][0].transcript;
     }
-    elements.questionInput.value = transcript.trim();
+    if (elements.questionInput) {
+      elements.questionInput.value = transcript.trim();
+    }
 
-    if (elements.autoAnswer.checked && event.results[event.results.length - 1].isFinal) {
+    if (elements.autoAnswer?.checked && event.results[event.results.length - 1].isFinal) {
       if (silenceTimer) clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
-        if (elements.questionInput.value.trim()) {
+        if (elements.questionInput?.value.trim()) {
           triggerAiQuery(elements.questionInput.value);
         }
       }, 1500);
@@ -381,6 +415,16 @@ function toggleListening() {
 
   recognition.onerror = (event) => {
     console.error("Speech recognition error:", event.error);
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      isListening = false;
+      if (elements.listenToggle) elements.listenToggle.textContent = "🎤 Start Listening";
+      setLiveStatus("Mic blocked — opening permission tab…");
+      if (chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?grantMic=1") });
+      }
+    } else if (event.error !== "no-speech") {
+      setLiveStatus(`Mic error: ${event.error}`);
+    }
   };
 
   recognition.onend = () => {
@@ -397,6 +441,7 @@ function toggleListening() {
     recognition.start();
   } catch (err) {
     console.error("Start recognition error:", err);
+    setLiveStatus("Failed to start speech recognition.");
   }
 }
 
@@ -432,7 +477,7 @@ async function triggerAiQueryWithScreenshot(promptText, imageBase64) {
 
   const settings = await PitchPilotExtension.loadSettings();
   const activeOrigin = (settings.apiOrigin || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
-  const selectedDocIds = Array.from(elements.documentSelect.selectedOptions).map((o) => o.value);
+  const selectedDocIds = Array.from(elements.documentSelect?.selectedOptions || []).map((o) => o.value);
 
   try {
     const res = await PitchPilotExtension.requestJson(
@@ -444,7 +489,7 @@ async function triggerAiQueryWithScreenshot(promptText, imageBase64) {
           question: promptText,
           imageBase64,
           mode: currentSession.type,
-          contextText: elements.jobDescription.value,
+          contextText: elements.jobDescription?.value || "",
           documentIds: selectedDocIds,
           sessionId: currentSession.sessionId,
         }),
@@ -486,3 +531,12 @@ setPanelVisible(elements.settingsPanel, false);
 navigateStep("context");
 loadPopup();
 updateStealthUI();
+
+if (new URLSearchParams(window.location.search).get("grantMic") === "1") {
+  navigateStep("copilot");
+  ensureMicPermission().then((ok) => {
+    if (ok) {
+      setLiveStatus("Mic permission granted! You can close this tab or click Start Listening.");
+    }
+  });
+}
