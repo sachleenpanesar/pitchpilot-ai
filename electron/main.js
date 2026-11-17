@@ -4,7 +4,7 @@ const path = require('path');
 
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('pitchpilot', process.execPath, [path.resolve(process.argv)]);
+    app.setAsDefaultProtocolClient('pitchpilot', process.execPath, [path.resolve(process.argv[1])]);
   }
 } else {
   app.setAsDefaultProtocolClient('pitchpilot');
@@ -13,6 +13,7 @@ if (process.defaultApp) {
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
+  process.exit(0);
 }
 
 let overlayWindow;
@@ -34,6 +35,7 @@ function handleDeepLink(urlStr) {
       });
     }
     if (!overlayWindow.isVisible()) overlayWindow.show();
+    overlayWindow.focus();
   } catch {
     if (overlayWindow && !overlayWindow.isVisible()) overlayWindow.show();
   }
@@ -104,7 +106,6 @@ function createOverlayWindow() {
     },
   });
 
-  // OS-LEVEL SCREEN-SHARE EXCLUSION (Invisible on Teams, Zoom, Meet, OBS)
   overlayWindow.setContentProtection(true);
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
@@ -180,6 +181,15 @@ function startLocalBridge() {
         res.end('Invalid JSON');
       }
     });
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log('Stealth Bridge port 4789 already active; exiting duplicate.');
+      app.quit();
+    } else {
+      console.error('Bridge server error:', err);
+    }
   });
 
   server.listen(4789, '127.0.0.1', () => {
