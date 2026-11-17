@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardCheck, LayoutDashboard, MessageSquare, Settings2, ShieldCheck, TicketPercent, UsersRound } from "lucide-react";
+import { ClipboardCheck, FileText, LayoutDashboard, MessageSquare, Settings2, ShieldCheck, TicketPercent, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getAdminUser } from "@/lib/admin-auth";
 import AdminLogoutButton from "./admin-logout-button";
@@ -8,6 +8,7 @@ const navigation = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users & Credits", icon: UsersRound },
   { href: "/admin/promos", label: "Promo Codes", icon: TicketPercent },
+  { href: "/admin/documents", label: "User Documents", icon: FileText },
   { href: "/admin/settings", label: "Site Settings", icon: Settings2 },
   { href: "/admin/upi-payments", label: "Pending UPI Payments", icon: ClipboardCheck },
   { href: "/admin/support", label: "Support Inbox", icon: MessageSquare },
