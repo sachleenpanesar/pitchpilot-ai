@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Check, Copy, Download, Puzzle } from "lucide-react"
+import StealthHudCard from "@/components/StealthHudCard"
 
 export default function ExtensionAccessPage() {
   const [token, setToken] = useState("")
@@ -114,6 +115,10 @@ export default function ExtensionAccessPage() {
           ) : null}
           {message ? <p className="mt-4 text-sm leading-6 text-emerald-100" role="status" aria-live="polite">{message}</p> : null}
         </section>
+      </div>
+
+      <div className="mt-8">
+        <StealthHudCard />
       </div>
     </main>
   )

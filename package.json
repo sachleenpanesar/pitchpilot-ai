@@ -17,6 +17,27 @@
   "prisma": {
     "seed": "node prisma/seed-admin.mjs"
   },
+  "build": {
+    "appId": "com.pitchpilot.desktop",
+    "productName": "PitchPilot AI",
+    "files": [
+      "electron/**/*"
+    ],
+    "protocols": [
+      {
+        "name": "PitchPilot Protocol",
+        "schemes": [
+          "pitchpilot"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.0.0",

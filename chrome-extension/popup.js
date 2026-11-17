@@ -43,9 +43,6 @@ const elements = {
 };
 
 let currentSession = { type: "INTERVIEW", sessionId: "", step: "context" };
-let isListening = false;
-let recognition = null;
-let silenceTimer = null;
 
 function setPanelVisible(el, visible) {
   if (!el) return;
@@ -66,26 +63,54 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
-async function syncContextToStealthHUD() {
-  try {
-    const settings = await PitchPilotExtension.loadSettings();
-    const activeOrigin = (settings.apiOrigin || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
-    const selectedDocIds = Array.from(elements.documentSelect?.selectedOptions || []).map((o) => o.value);
+function setLiveStatus(text) {
+  if (elements.liveStatusText) {
+    elements.liveStatusText.textContent = text;
+  }
+}
 
-    await fetch(`${STEALTH_BRIDGE_BASE}/sync-context`, {
+async function syncContextToStealthHUD(autoLaunch = false) {
+  const settings = await PitchPilotExtension.loadSettings();
+  const activeOrigin = (settings.apiOrigin || DEFAULT_API_ORIGIN).trim().replace(/\/+$/, "");
+  const selectedDocIds = Array.from(elements.documentSelect?.selectedOptions || []).map((o) => o.value);
+
+  const payload = JSON.stringify({
+    apiOrigin: activeOrigin,
+    apiToken: settings.apiToken || "",
+    mode: currentSession.type,
+    contextText: elements.jobDescription?.value || "",
+    documentIds: selectedDocIds,
+  });
+
+  try {
+    const res = await fetch(`${STEALTH_BRIDGE_BASE}/sync-context`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        apiOrigin: activeOrigin,
-        apiToken: settings.apiToken || "",
-        mode: currentSession.type,
-        contextText: elements.jobDescription?.value || "",
-        documentIds: selectedDocIds,
-      }),
+      body: payload,
     });
+    if (res.ok) {
+      setLiveStatus("Synced with Stealth HUD ✅ (Close this popup now)");
+      return true;
+    }
   } catch {
-    // Stealth HUD not currently open
+    if (autoLaunch) {
+      setLiveStatus("Launching Stealth HUD app…");
+      window.open("pitchpilot://launch", "_blank");
+      setTimeout(async () => {
+        try {
+          await fetch(`${STEALTH_BRIDGE_BASE}/sync-context`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          });
+          setLiveStatus("Stealth HUD Launched & Synced ✅");
+        } catch {
+          setLiveStatus("Install Stealth HUD .exe or run npm run stealth:start");
+        }
+      }, 2500);
+    }
   }
+  return false;
 }
 
 async function pushToStealthHUD(questionText, renderedHtml) {
@@ -98,15 +123,7 @@ async function pushToStealthHUD(questionText, renderedHtml) {
         html: renderedHtml,
       }),
     });
-  } catch {
-    // Stealth HUD not currently open
-  }
-}
-
-function setLiveStatus(text) {
-  if (elements.liveStatusText) {
-    elements.liveStatusText.textContent = text;
-  }
+  } catch {}
 }
 
 function showSettingsMessage(message, kind = "") {
@@ -154,6 +171,7 @@ function navigateStep(stepName) {
   if (stepName === "copilot") {
     setPanelVisible(elements.setupPanel, false);
     setPanelVisible(elements.livePanel, true);
+    syncContextToStealthHUD(true);
   } else {
     setPanelVisible(elements.setupPanel, true);
     setPanelVisible(elements.livePanel, false);
@@ -192,7 +210,7 @@ async function loadPopup() {
             .map((d) => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.title)} (${escapeHtml(d.docType)})</option>`)
             .join("");
         }
-        await syncContextToStealthHUD();
+        await syncContextToStealthHUD(false);
       } catch (err) {
         console.warn("Context fetch warning:", err);
         if (elements.creditBadge) elements.creditBadge.textContent = "Token issue";
@@ -231,7 +249,6 @@ elements.saveSettings?.addEventListener("click", async () => {
     setPanelVisible(elements.settingsPanel, false);
     elements.settingsToggle?.setAttribute("aria-expanded", "false");
     await loadPopup();
-    await syncContextToStealthHUD();
   } catch (e) {
     showSettingsMessage(e.message, "error");
   }
@@ -254,7 +271,6 @@ elements.stepItems.forEach((item) => {
     if (step === "context" || step === "preferences") {
       navigateStep("context");
     } else if (step === "copilot") {
-      syncContextToStealthHUD();
       navigateStep("copilot");
     }
   });
@@ -265,7 +281,6 @@ elements.sessionTypeTabs.forEach((btn) =>
     elements.sessionTypeTabs.forEach((t) => t.classList.remove("active"));
     e.currentTarget.classList.add("active");
     currentSession.type = e.currentTarget.dataset.sessionType;
-    syncContextToStealthHUD();
   })
 );
 
@@ -279,7 +294,6 @@ elements.importTab?.addEventListener("click", async () => {
     });
     if (results?.[0]?.result) {
       elements.jobDescription.value = results[0].result;
-      await syncContextToStealthHUD();
     }
   } catch (err) {
     console.error("Tab import failed:", err);
@@ -287,10 +301,8 @@ elements.importTab?.addEventListener("click", async () => {
   }
 });
 
-elements.startSession?.addEventListener("click", async () => {
-  await syncContextToStealthHUD();
+elements.startSession?.addEventListener("click", () => {
   navigateStep("copilot");
-  setLiveStatus("Synced to Stealth HUD! Close this popup & use HUD.");
 });
 
 elements.backToSetup?.addEventListener("click", () => {
@@ -371,77 +383,10 @@ elements.questionInput?.addEventListener("keydown", (e) => {
   }
 });
 
-function toggleListening() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    setLiveStatus("Use Start Listening inside the Stealth HUD window.");
-    return;
-  }
-
-  if (isListening) {
-    isListening = false;
-    if (recognition) {
-      try {
-        recognition.stop();
-      } catch {}
-    }
-    if (elements.listenToggle) elements.listenToggle.textContent = "🎤 Start Listening";
-    setLiveStatus("Live Copilot Active (Paused)");
-    return;
-  }
-
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = "en-US";
-
-  recognition.onstart = () => {
-    isListening = true;
-    if (elements.listenToggle) elements.listenToggle.textContent = "⏹ Stop Listening";
-    setLiveStatus("Listening… (Use Stealth HUD so closing popup won't stop)");
-  };
-
-  recognition.onresult = (event) => {
-    let transcript = "";
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      transcript += event.results[i][0].transcript;
-    }
-    if (elements.questionInput) {
-      elements.questionInput.value = transcript.trim();
-    }
-
-    if (elements.autoAnswer?.checked && event.results[event.results.length - 1].isFinal) {
-      if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => {
-        if (elements.questionInput?.value.trim()) {
-          triggerAiQuery(elements.questionInput.value);
-        }
-      }, 1500);
-    }
-  };
-
-  recognition.onerror = (event) => {
-    if (event.error !== "no-speech") {
-      setLiveStatus(`Use Stealth HUD mic (${event.error})`);
-    }
-  };
-
-  recognition.onend = () => {
-    if (isListening) {
-      try {
-        recognition.start();
-      } catch {}
-    }
-  };
-
-  try {
-    recognition.start();
-  } catch {
-    setLiveStatus("Use Start Listening inside the Stealth HUD window.");
-  }
-}
-
-elements.listenToggle?.addEventListener("click", toggleListening);
+elements.listenToggle?.addEventListener("click", async () => {
+  await syncContextToStealthHUD(true);
+  setLiveStatus("Click 'Start Listening' inside the Stealth HUD window!");
+});
 
 elements.solveScreen?.addEventListener("click", async () => {
   try {
@@ -462,6 +407,7 @@ elements.solveScreen?.addEventListener("click", async () => {
     await triggerAiQueryWithScreenshot("Analyze the shared screen code or meeting question.", imageBase64);
   } catch (err) {
     console.error("Screen capture failed:", err);
+    alert("Screen capture was cancelled or failed.");
   }
 });
 
@@ -516,7 +462,6 @@ elements.connectAccount?.addEventListener("click", async () => {
     await PitchPilotExtension.connectAccount();
     setPanelVisible(elements.settingsPanel, false);
     await loadPopup();
-    await syncContextToStealthHUD();
     showSettingsMessage("Connected successfully.", "success");
   } catch (e) {
     showSettingsMessage(e.message, "error");

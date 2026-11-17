@@ -1,9 +1,95 @@
-const { app, BrowserWindow, globalShortcut, session } = require('electron');
+const { app, BrowserWindow, globalShortcut, session, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const http = require('http');
 const path = require('path');
 
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('pitchpilot', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('pitchpilot');
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 let overlayWindow;
+let tray = null;
 let clickThrough = false;
+
+function handleDeepLink(urlStr) {
+  if (!urlStr || !overlayWindow) return;
+  try {
+    const parsed = new URL(urlStr);
+    const token = parsed.searchParams.get('token');
+    const origin = parsed.searchParams.get('origin');
+    const mode = parsed.searchParams.get('mode');
+    if (token || origin || mode) {
+      overlayWindow.webContents.send('sync-context', {
+        ...(token ? { apiToken: token } : {}),
+        ...(origin ? { apiOrigin: origin } : {}),
+        ...(mode ? { mode } : {}),
+      });
+    }
+    if (!overlayWindow.isVisible()) overlayWindow.show();
+  } catch {
+    if (overlayWindow && !overlayWindow.isVisible()) overlayWindow.show();
+  }
+}
+
+app.on('second-instance', (_event, commandLine) => {
+  if (overlayWindow) {
+    if (!overlayWindow.isVisible()) overlayWindow.show();
+    overlayWindow.focus();
+    const deepLink = commandLine.find((arg) => arg.startsWith('pitchpilot://'));
+    if (deepLink) handleDeepLink(deepLink);
+  }
+});
+
+app.on('open-url', (event, urlStr) => {
+  event.preventDefault();
+  handleDeepLink(urlStr);
+});
+
+function createTray() {
+  const iconDataUrl =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVR42mNgGGjACMR/gfg/EGPg/0D8H4j/k2EAmYbhMoBsg4i2gJwB5BpAkgFkG0CSAeQagNsAMgzAZQAZBmAzgAwDcBlAhgG4DCDDAFwG4DaADANwGUAsAABv1xL1f8b67QAAAABJRU5ErkJggg==';
+  const icon = nativeImage.createFromDataURL(iconDataUrl);
+  tray = new Tray(icon);
+  tray.setToolTip('PitchPilot Stealth HUD');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show / Hide HUD (Ctrl+Shift+H)',
+      click: () => {
+        if (!overlayWindow) return;
+        overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
+      },
+    },
+    {
+      label: 'Toggle Click-Through (Ctrl+Shift+T)',
+      click: () => {
+        if (!overlayWindow) return;
+        clickThrough = !clickThrough;
+        overlayWindow.setIgnoreMouseEvents(clickThrough, { forward: true });
+        overlayWindow.webContents.send('click-through-status', clickThrough);
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit PitchPilot Stealth HUD',
+      click: () => app.quit(),
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.on('click', () => {
+    if (!overlayWindow) return;
+    overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
+  });
+}
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
@@ -28,20 +114,22 @@ function createOverlayWindow() {
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');
 
-  // Auto-grant microphone permission inside the Stealth HUD
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(permission === 'media');
   });
 
   overlayWindow.loadFile(path.join(__dirname, 'overlay.html'));
 
-  // Global Panic Hide / Show (Ctrl+Shift+H)
+  overlayWindow.webContents.once('did-finish-load', () => {
+    const initialLink = process.argv.find((arg) => arg.startsWith('pitchpilot://'));
+    if (initialLink) handleDeepLink(initialLink);
+  });
+
   globalShortcut.register('CommandOrControl+Shift+H', () => {
     if (!overlayWindow) return;
     overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
   });
 
-  // Global Click-Through Toggle (Ctrl+Shift+T)
   globalShortcut.register('CommandOrControl+Shift+T', () => {
     if (!overlayWindow) return;
     clickThrough = !clickThrough;
@@ -53,12 +141,17 @@ function createOverlayWindow() {
 function startLocalBridge() {
   const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       return res.end();
+    }
+
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: true }));
     }
 
     let body = '';
@@ -70,6 +163,7 @@ function startLocalBridge() {
           overlayWindow.webContents.send('new-ai-prompt', data);
         } else if (req.url === '/sync-context' && overlayWindow) {
           overlayWindow.webContents.send('sync-context', data);
+          if (!overlayWindow.isVisible()) overlayWindow.show();
         }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
@@ -85,8 +179,13 @@ function startLocalBridge() {
   });
 }
 
+ipcMain.on('quit-stealth-app', () => {
+  app.quit();
+});
+
 app.whenReady().then(() => {
   createOverlayWindow();
+  createTray();
   startLocalBridge();
 });
 

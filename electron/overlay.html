@@ -28,6 +28,26 @@
       color: #38bdf8;
       font-weight: 700;
     }
+    .header-actions {
+      -webkit-app-region: no-drag;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .close-btn {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .close-btn:hover {
+      background: #dc2626;
+      color: #ffffff;
+    }
     .controls {
       display: flex;
       gap: 6px;
@@ -68,8 +88,11 @@
 </head>
 <body>
   <div class="header">
-    <span>PitchPilot Stealth HUD (Invisible to Teams)</span>
-    <span id="badge">Ctrl+Shift+H Hide</span>
+    <span>PitchPilot Stealth HUD</span>
+    <div class="header-actions">
+      <span id="badge">Ctrl+Shift+H Hide</span>
+      <button id="closeHudBtn" class="close-btn" title="Quit Stealth HUD">✕</button>
+    </div>
   </div>
 
   <div class="controls">
@@ -84,21 +107,18 @@
   <script>
     let context = JSON.parse(localStorage.getItem('pp_stealth_ctx') || '{}');
     let isListening = false;
-    let recognition = null;
-    let silenceTimer = null;
-
-    function escapeHtml(str) {
-      return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    let mediaStream = null;
+    let recordLoopActive = false;
+    let accumulatedQuestion = '';
+    let silenceCount = 0;
 
     if (context.apiToken) {
       document.getElementById('statusText').textContent = 'JD & CV Context Synced ✅';
     }
+
+    document.getElementById('closeHudBtn').addEventListener('click', () => {
+      window.stealthAPI.quitApp();
+    });
 
     window.stealthAPI.onSyncContext((data) => {
       context = { ...context, ...data };
@@ -115,8 +135,17 @@
       document.getElementById('badge').textContent = locked ? 'Locked (Ctrl+Shift+T)' : 'Ctrl+Shift+H Hide';
     });
 
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     async function askCopilot(question) {
-      if (!question.trim()) return;
+      if (!question || !question.trim()) return;
       const answerBox = document.getElementById('answerBox');
       answerBox.innerHTML = '<em>Generating tailored answer…</em>';
 
@@ -129,7 +158,7 @@
             ...(context.apiToken ? { Authorization: `Bearer ${context.apiToken}` } : {}),
           },
           body: JSON.stringify({
-            question,
+            question: question.trim(),
             mode: context.mode || 'INTERVIEW',
             contextText: context.contextText || '',
             documentIds: context.documentIds || [],
@@ -137,7 +166,7 @@
         });
         const json = await res.json();
         const d = json.data || json;
-        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+        if (json.error) throw new Error(json.error);
 
         let html = `<div style="color:#38bdf8;font-weight:700;margin-bottom:6px;">💡 Summary</div><div style="margin-bottom:10px;">${escapeHtml(d.summary || 'No response.')}</div>`;
         if (d.starAnswer && (d.starAnswer.situation || d.starAnswer.task)) {
@@ -149,14 +178,12 @@
             <li><b>R:</b> ${escapeHtml(d.starAnswer.result)}</li>
           </ul>`;
         }
-        if (d.codingSolution?.code) {
+        if (d.codingSolution && d.codingSolution.code) {
           html += `<pre style="background:#020617;padding:8px;border-radius:6px;overflow-x:auto;font-size:11px;margin-bottom:8px;"><code>${escapeHtml(d.codingSolution.code)}</code></pre>`;
         }
         if (d.suggestedPhrases && d.suggestedPhrases.length > 0) {
-          html += `<div style="font-weight:700;margin-bottom:4px;">💬 Speaking Points</div>
-          <ul style="margin-left:16px;font-size:12px;">
-            ${d.suggestedPhrases.map((p) => `<li>"${escapeHtml(p)}"</li>`).join('')}
-          </ul>`;
+          html += `<div style="color:#fbbf24;font-weight:700;margin-bottom:4px;">💬 Speaking Points</div>
+          <ul style="margin-left:16px;font-size:12px;">${d.suggestedPhrases.map((p) => `<li>"${escapeHtml(p)}"</li>`).join('')}</ul>`;
         }
         answerBox.innerHTML = html;
       } catch (err) {
@@ -169,50 +196,110 @@
     });
 
     document.getElementById('promptInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') askCopilot(document.getElementById('promptInput').value);
+      if (e.key === 'Enter') {
+        askCopilot(document.getElementById('promptInput').value);
+      }
     });
 
-    document.getElementById('listenBtn').addEventListener('click', () => {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) {
-        document.getElementById('statusText').textContent = 'SpeechRecognition unavailable.';
-        return;
+    async function transcribeChunk(blob) {
+      const origin = (context.apiOrigin || 'https://pitchpilot-ai-ruddy.vercel.app').replace(/\/+$/, '');
+      const formData = new FormData();
+      formData.append('audio', blob, 'chunk.webm');
+
+      const res = await fetch(`${origin}/api/copilot/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
       }
+      const data = await res.json();
+      return (data.text || '').trim();
+    }
+
+    function recordOneChunk(stream, durationMs) {
+      return new Promise((resolve) => {
+        const chunks = [];
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+        recorder.onstop = () => {
+          resolve(new Blob(chunks, { type: 'audio/webm' }));
+        };
+        recorder.start();
+        setTimeout(() => {
+          if (recorder.state !== 'inactive') recorder.stop();
+        }, durationMs);
+      });
+    }
+
+    async function runCaptureLoop() {
+      const statusEl = document.getElementById('statusText');
+      const inputEl = document.getElementById('promptInput');
+      recordLoopActive = true;
+
+      while (isListening && mediaStream) {
+        try {
+          const blob = await recordOneChunk(mediaStream, 3500);
+          if (!isListening) break;
+
+          statusEl.textContent = 'Transcribing audio…';
+          const text = await transcribeChunk(blob);
+
+          if (text && text.length > 2) {
+            silenceCount = 0;
+            accumulatedQuestion = (accumulatedQuestion + ' ' + text).trim();
+            inputEl.value = accumulatedQuestion;
+            statusEl.textContent = 'Listening (captured speech)…';
+          } else {
+            silenceCount++;
+            statusEl.textContent = 'Listening for speech…';
+            if (accumulatedQuestion && silenceCount >= 1) {
+              const finalQ = accumulatedQuestion;
+              accumulatedQuestion = '';
+              silenceCount = 0;
+              askCopilot(finalQ);
+            }
+          }
+        } catch (err) {
+          statusEl.textContent = `Transcribe error: ${err.message}`;
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+      recordLoopActive = false;
+    }
+
+    document.getElementById('listenBtn').addEventListener('click', async () => {
       const btn = document.getElementById('listenBtn');
+      const statusEl = document.getElementById('statusText');
+
       if (isListening) {
         isListening = false;
-        try { recognition?.stop(); } catch {}
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((t) => t.stop());
+          mediaStream = null;
+        }
         btn.textContent = '🎤 Start Listening';
         btn.classList.remove('listening');
-        document.getElementById('statusText').textContent = 'Paused.';
+        statusEl.textContent = 'Listening paused.';
         return;
       }
-      recognition = new SR();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-      recognition.onstart = () => {
+
+      try {
+        statusEl.textContent = 'Opening microphone…';
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         isListening = true;
-        btn.textContent = '⏹ Stop';
+        accumulatedQuestion = '';
+        silenceCount = 0;
+        btn.textContent = '⏹ Stop Listening';
         btn.classList.add('listening');
-        document.getElementById('statusText').textContent = 'Listening continuously (never resets)…';
-      };
-      recognition.onresult = (e) => {
-        let text = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) text += e.results[i][0].transcript;
-        document.getElementById('promptInput').value = text.trim();
-        if (e.results[e.results.length - 1].isFinal) {
-          clearTimeout(silenceTimer);
-          silenceTimer = setTimeout(() => askCopilot(document.getElementById('promptInput').value), 1500);
-        }
-      };
-      recognition.onerror = (e) => {
-        if (e.error !== 'no-speech') {
-          document.getElementById('statusText').textContent = `Mic error: ${e.error}`;
-        }
-      };
-      recognition.onend = () => { if (isListening) { try { recognition.start(); } catch {} } };
-      recognition.start();
+        statusEl.textContent = 'Listening continuously…';
+        if (!recordLoopActive) runCaptureLoop();
+      } catch (err) {
+        statusEl.textContent = `Mic access error: ${err.message}`;
+      }
     });
   </script>
 </body>

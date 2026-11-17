@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Video, Shield, FileText, ArrowRight, MessageSquare, CheckCircle, Sparkles, Coins, EyeOff, Terminal, Zap } from "lucide-react"
 import PromoCodeBox from "@/components/promo-code-box"
 import LaunchCopilotButton from "@/components/launch-copilot-button"
+import StealthHudCard from "@/components/StealthHudCard"
 
 export default async function DashboardPage() {
   const auth = await getCurrentUser()
@@ -55,6 +56,11 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* Stealth Desktop HUD Download & Launcher */}
+      <div className="mb-10">
+        <StealthHudCard />
+      </div>
+
       {/* Stealth Mode Quick Guide */}
       <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 mb-10">
         <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
@@ -66,15 +72,15 @@ export default async function DashboardPage() {
               <Zap className="w-3.5 h-3.5 text-emerald-400" /> Panic Hide
             </div>
             <p className="text-[11px] leading-relaxed text-zinc-500">
-              Press <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Esc</kbd> or <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Ctrl+Shift+H</kbd> in the extension to instantly blur the interface.
+              Press <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Esc</kbd> or <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Ctrl+Shift+H</kbd> to instantly hide the Stealth HUD.
             </p>
           </div>
           <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-800/50">
             <div className="flex items-center gap-2 mb-2 text-xs font-bold text-zinc-300">
-              <Terminal className="w-3.5 h-3.5 text-purple-400" /> Camouflage
+              <Terminal className="w-3.5 h-3.5 text-purple-400" /> Click-Through Lock
             </div>
             <p className="text-[11px] leading-relaxed text-zinc-500">
-              Use the <span className="text-indigo-400">VS Code Theme</span> toggle to disguise the assistant as a dark code editor, making it look like standard notes on screen share.
+              Press <kbd className="bg-zinc-800 px-1 rounded text-zinc-300 border border-zinc-700">Ctrl+Shift+T</kbd> so mouse clicks pass right through the overlay to your code editor or meeting window.
             </p>
           </div>
           <div className="bg-zinc-950/40 p-4 rounded-2xl border border-zinc-800/50">
@@ -82,7 +88,7 @@ export default async function DashboardPage() {
               <Shield className="w-3.5 h-3.5 text-indigo-400" /> Screen Cloaking
             </div>
             <p className="text-[11px] leading-relaxed text-zinc-500">
-              PitchPilot is built to be undetectable by popular meeting platforms. Always use our Chrome extension for maximum privacy.
+              Configure your Job Description and CV in the Chrome Add-in, then let the native Stealth HUD float invisibly over Teams, Zoom, and Meet.
             </p>
           </div>
         </div>
