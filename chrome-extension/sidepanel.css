@@ -340,14 +340,25 @@ body { overflow: hidden; background: #f8fafc; }
   overflow-wrap: anywhere;
 }
 .content-column {
+  height: 100%;
   min-height: 0;
-  padding: 20px 24px 24px;
-  overflow: auto;
+  padding: 20px 24px 28px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   background: #f8fafc;
 }
 .content-column > .status { margin-bottom: 16px; }
 .content-column .view { width: 100%; max-width: 780px; margin: 0 auto; }
 .content-column .panel { padding: 22px; }
+.resume-field-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.resume-field-head > label:first-child { min-width: 0; }
+.resume-upload-button { flex: 0 0 auto; margin: 0; }
+.resume-field > select { margin-top: 6px; }
+.resume-field > .hint { font-weight: 400; }
+#next-step { position: sticky; bottom: 0; z-index: 2; box-shadow: 0 -8px 18px rgba(248,250,252,.94); }
 .content-column .section-head h2, .content-column .live-heading h2 { font-size: 20px; }
 .content-column .session-choice legend,
 .content-column .field,
@@ -371,6 +382,7 @@ body { overflow: hidden; background: #f8fafc; }
   background: white;
 }
 .screen-scan-status { margin: 6px 2px 10px; font-size: 10px; }
+.screen-share-disclosure { margin: -4px 2px 10px; }
 .screen-preview-panel { margin-top: 10px; }
 .screen-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .screen-preview-heading strong, .screen-preview-heading span { display: block; }

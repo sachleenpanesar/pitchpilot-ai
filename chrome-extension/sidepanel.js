@@ -38,7 +38,9 @@ const elements = {
   jobDescription: document.getElementById("job-description"),
   importTab: document.getElementById("import-tab"),
   briefFile: document.getElementById("brief-file"),
+  resumeFile: document.getElementById("resume-file"),
   resumeSelect: document.getElementById("resume-select"),
+  resumeStatus: document.getElementById("resume-status"),
   documentSelect: document.getElementById("document-select"),
   documentsStatus: document.getElementById("documents-status"),
   nextStep: document.getElementById("next-step"),
@@ -322,6 +324,201 @@ async function readBriefFile() {
     showMessage("");
   } catch (error) {
     showMessage(error instanceof Error ? error.message : "Could not read the selected text file.");
+  }
+}
+
+async function inflateBytes(bytes, format) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function extractDocxText(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const searchStart = Math.max(0, bytes.length - 65_557);
+  let endOfCentralDirectory = -1;
+
+  for (let offset = bytes.length - 22; offset >= searchStart; offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) {
+      endOfCentralDirectory = offset;
+      break;
+    }
+  }
+  if (endOfCentralDirectory < 0) throw new Error("This DOCX file is not a readable ZIP document.");
+
+  const entryCount = view.getUint16(endOfCentralDirectory + 10, true);
+  let entryOffset = view.getUint32(endOfCentralDirectory + 16, true);
+  const decoder = new TextDecoder("utf-8");
+
+  for (let index = 0; index < entryCount; index += 1) {
+    if (view.getUint32(entryOffset, true) !== 0x02014b50) break;
+    const method = view.getUint16(entryOffset + 10, true);
+    const compressedSize = view.getUint32(entryOffset + 20, true);
+    const nameLength = view.getUint16(entryOffset + 28, true);
+    const extraLength = view.getUint16(entryOffset + 30, true);
+    const commentLength = view.getUint16(entryOffset + 32, true);
+    const localHeaderOffset = view.getUint32(entryOffset + 42, true);
+    const nameStart = entryOffset + 46;
+    const entryName = decoder.decode(bytes.subarray(nameStart, nameStart + nameLength));
+
+    if (entryName === "word/document.xml") {
+      const localNameLength = view.getUint16(localHeaderOffset + 26, true);
+      const localExtraLength = view.getUint16(localHeaderOffset + 28, true);
+      const contentStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+      const compressed = bytes.subarray(contentStart, contentStart + compressedSize);
+      const xmlBytes = method === 0
+        ? compressed
+        : method === 8
+          ? await inflateBytes(compressed, "deflate-raw")
+          : null;
+      if (!xmlBytes) throw new Error("This DOCX uses an unsupported compression format.");
+
+      const xml = new DOMParser().parseFromString(decoder.decode(xmlBytes), "application/xml");
+      if (xml.querySelector("parsererror")) throw new Error("Could not read the DOCX document text.");
+      return [...xml.getElementsByTagNameNS("*", "p")]
+        .map((paragraph) => [...paragraph.getElementsByTagNameNS("*", "t")]
+          .map((text) => text.textContent || "")
+          .join(""))
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    entryOffset += 46 + nameLength + extraLength + commentLength;
+  }
+  throw new Error("No readable document text was found in this DOCX file.");
+}
+
+function decodePdfLiteral(value) {
+  let decoded = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character !== "\\") {
+      decoded += character;
+      continue;
+    }
+    index += 1;
+    const escaped = value[index];
+    if (escaped === "n") decoded += "\n";
+    else if (escaped === "r") decoded += "\r";
+    else if (escaped === "t") decoded += "\t";
+    else if (escaped === "b") decoded += "\b";
+    else if (escaped === "f") decoded += "\f";
+    else if (escaped === "\r" || escaped === "\n") {
+      if (escaped === "\r" && value[index + 1] === "\n") index += 1;
+    } else if (/[0-7]/.test(escaped || "")) {
+      const octal = escaped + (value[index + 1] || "") + (value[index + 2] || "");
+      const match = octal.match(/^[0-7]{1,3}/);
+      if (match) {
+        decoded += String.fromCharCode(parseInt(match[0], 8));
+        index += match[0].length - 1;
+      }
+    } else if (escaped) {
+      decoded += escaped;
+    }
+  }
+  return decoded;
+}
+
+function extractPdfTextOperators(source) {
+  const text = [];
+  const literalPattern = /\(((?:\\[\s\S]|[^\\)])*)\)\s*Tj/g;
+  const arrayPattern = /\[((?:\\[\s\S]|[^\]])*)\]\s*TJ/g;
+  let match;
+  while ((match = literalPattern.exec(source))) text.push(decodePdfLiteral(match[1]));
+  while ((match = arrayPattern.exec(source))) {
+    const parts = match[1].match(/\(((?:\\[\s\S]|[^\\)])*)\)/g) || [];
+    text.push(parts.map((part) => decodePdfLiteral(part.slice(1, -1))).join(""));
+  }
+  return text.join("\n");
+}
+
+async function extractPdfText(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const source = new TextDecoder("latin1").decode(bytes);
+  const sources = [source];
+  const streamPattern = /<<(.*?)>>\s*stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let match;
+  while ((match = streamPattern.exec(source))) {
+    if (!/\/FlateDecode\b/.test(match[1])) continue;
+    const compressed = Uint8Array.from(match[2], (character) => character.charCodeAt(0));
+    try {
+      sources.push(new TextDecoder("latin1").decode(await inflateBytes(compressed, "deflate")));
+    } catch {
+      continue;
+    }
+  }
+  const extracted = sources.map(extractPdfTextOperators).filter(Boolean).join("\n").trim();
+  if (!extracted) {
+    throw new Error("Could not extract searchable text from this PDF. Try a text-based PDF or upload a TXT/DOCX copy.");
+  }
+  return extracted;
+}
+
+async function extractResumeText(file) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension === "txt") return file.text();
+  if (extension === "docx") return extractDocxText(file);
+  if (extension === "pdf") return extractPdfText(file);
+  throw new Error("Choose a PDF, DOCX, or TXT resume file.");
+}
+
+async function uploadResume() {
+  const file = elements.resumeFile.files?.[0];
+  if (!file) return;
+  if (!state.settings?.apiToken) {
+    elements.resumeStatus.textContent = "Connect your account before uploading a resume.";
+    setConnectionSettingsOpen(true);
+    elements.resumeFile.value = "";
+    return;
+  }
+  if (file.size > 5_000_000) {
+    elements.resumeStatus.textContent = "Resume files must be smaller than 5 MB.";
+    elements.resumeFile.value = "";
+    return;
+  }
+
+  elements.resumeFile.disabled = true;
+  elements.resumeStatus.textContent = "Reading resume text locally…";
+  showMessage("");
+  try {
+    const content = (await extractResumeText(file)).replace(/\u0000/g, "").trim().slice(0, 250_000);
+    if (!content) throw new Error("No readable text was found in this resume.");
+    elements.resumeStatus.textContent = "Saving resume to your account…";
+    const savedDocument = await PitchPilotExtension.requestJson("/api/documents", state.settings, {
+      method: "POST",
+      body: JSON.stringify({
+        title: file.name,
+        docType: "RESUME",
+        content,
+      }),
+    });
+    if (typeof savedDocument.id !== "string" || typeof savedDocument.title !== "string") {
+      throw new Error("The document service did not return the saved resume.");
+    }
+
+    const document = {
+      id: savedDocument.id,
+      title: savedDocument.title,
+      docType: savedDocument.docType,
+      createdAt: savedDocument.createdAt,
+    };
+    state.documents = [document, ...state.documents.filter((item) => item.id !== document.id)];
+    populateSelect(
+      elements.resumeSelect,
+      state.documents.filter((item) => item.docType === "RESUME"),
+      "No saved CV / Resume",
+    );
+    elements.resumeSelect.value = document.id;
+    state.jobDescription = elements.jobDescription.value.trim();
+    state.documentIds = [...new Set(getSelectedDocumentIds())];
+    elements.resumeStatus.textContent = `${document.title} added to this session context.`;
+    elements.documentsStatus.textContent = "Resume saved and selected for this session.";
+    setStatus("Resume added", "The selected resume will be included in this session's context.", "ready");
+  } catch (error) {
+    elements.resumeStatus.textContent = error instanceof Error ? error.message : "Could not upload this resume.";
+  } finally {
+    elements.resumeFile.disabled = false;
+    elements.resumeFile.value = "";
   }
 }
 
@@ -1015,6 +1212,7 @@ elements.sessionTypeButtons.forEach((button) => {
 });
 elements.importTab.addEventListener("click", () => void importCurrentTab());
 elements.briefFile.addEventListener("change", () => void readBriefFile());
+elements.resumeFile.addEventListener("change", () => void uploadResume());
 elements.nextStep.addEventListener("click", beginPreferences);
 elements.backToContext.addEventListener("click", () => updateStep("context", true));
 elements.startSession.addEventListener("click", () => void startSession());

@@ -87,11 +87,19 @@
           </div>
           <p class="hint">Import reads visible page text after you click. Upload a plain-text or Markdown brief.</p>
 
-          <label class="field" for="resume-select">Saved CV / Resume
+          <div class="field resume-field">
+            <div class="resume-field-head">
+              <label for="resume-select">Saved CV / Resume</label>
+              <label class="button button-secondary file-button resume-upload-button" for="resume-file">
+                Upload Resume
+                <input id="resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
+              </label>
+            </div>
             <select id="resume-select">
               <option value="">No CV selected</option>
             </select>
-          </label>
+            <p id="resume-status" class="hint" role="status" aria-live="polite"></p>
+          </div>
           <label class="field" for="document-select">Saved Documents <span class="optional">(optional, multi-select)</span>
             <select id="document-select" multiple size="4" aria-describedby="documents-help"></select>
           </label>
@@ -156,6 +164,7 @@
           <button id="share-screen-button" class="button button-secondary" type="button">Share Screen</button>
           <button id="solve-button" class="button button-secondary" type="button">Solve Screen Now</button>
         </div>
+        <p class="hint screen-share-disclosure">If you share your screen, let other participants know when Copilot is active.</p>
         <label class="toggle-row live-auto-answer" for="live-auto-answer">
           <span>
             <strong>Auto-Answer</strong>
@@ -209,7 +218,7 @@
 
         </div>
       </div>
-      <p class="footer">Use only where permitted. Verify suggested answers and code.</p>
+      <p class="footer">Use only where permitted. Let participants know when Copilot is active during a shared session.</p>
     </main>
     <script src="common.js"></script>
     <script src="sidepanel.js"></script>
