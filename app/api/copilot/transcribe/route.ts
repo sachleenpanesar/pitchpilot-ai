@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
       const audioFile = formData.get("file") || formData.get("audio");
-      if (!(audioFile instanceof File)) {
+      if (!(audioFile instanceof Blob)) {
         return NextResponse.json(
           { error: "Audio file is missing. Send it as a multipart 'file' or 'audio' field." },
           { status: 400 }
@@ -35,10 +35,8 @@ export async function POST(req: NextRequest) {
         ? contentType.split(";")[0].trim()
         : "audio/wav";
     } else {
-      return NextResponse.json(
-        { error: "Unsupported audio request. Send multipart/form-data or a raw audio/* / application/octet-stream body." },
-        { status: 400 }
-      );
+      arrayBuffer = await req.arrayBuffer();
+      mimeType = "audio/wav";
     }
 
     if (arrayBuffer.byteLength === 0) {
