@@ -17,24 +17,79 @@ export async function POST(req: NextRequest) {
     const question = (body.question || "").trim();
     const resumeText = (body.resumeText || "").trim();
     const jobDescription = (body.jobDescription || "").trim();
+    const useStream = Boolean(body.stream);
 
     if (!question) {
       return NextResponse.json({ error: "Question is required." }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({
+    const prompt = `You are a real-time interview copilot. Deliver a fast, natural, high-impact spoken answer immediately.
+Question: ${question}
+${resumeText ? `Candidate Resume: ${resumeText.slice(0, 1400)}` : ""}
+${jobDescription ? `Target Role: ${jobDescription.slice(0, 900)}` : ""}
+
+Format your response using these exact headings (keep it concise and punchy):
+### Direct Answer
+2 crisp, direct sentences the candidate can say out loud immediately.
+
+### STAR Example
+1 concise 2-sentence STAR example from their background (skip this heading if the question is not behavioral).
+
+### Key Talking Points
+- Short key point 1
+- Short key point 2
+- Short key point 3`;
+
+    if (useStream) {
+      const streamModel = genAI.getGenerativeModel({
+        model: "gemini-3.5-flash-lite",
+        generationConfig: {
+          temperature: 0.35,
+          maxOutputTokens: 280,
+        },
+      });
+
+      const streamResult = await streamModel.generateContentStream(prompt);
+      const encoder = new TextEncoder();
+
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of streamResult.stream) {
+              const text = chunk.text();
+              if (text) {
+                controller.enqueue(encoder.encode(text));
+              }
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "Stream error";
+            controller.enqueue(encoder.encode(`\nError: ${msg}`));
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(readable, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    }
+
+    // Fallback JSON mode for Chrome extension compatibility
+    const jsonModel = genAI.getGenerativeModel({
       model: "gemini-3.5-flash-lite",
       generationConfig: {
         temperature: 0.35,
-        maxOutputTokens: 320,
+        maxOutputTokens: 300,
         responseMimeType: "application/json",
       },
     });
 
-    const prompt = `You are a real-time interview copilot. Deliver a fast, natural, high-impact spoken answer.
-Question: ${question}
-${resumeText ? `Candidate Resume: ${resumeText.slice(0, 1500)}` : ""}
-${jobDescription ? `Target Job Description: ${jobDescription.slice(0, 1000)}` : ""}
+    const jsonPrompt = `${prompt}
 
 Return strict JSON only:
 {
@@ -43,7 +98,7 @@ Return strict JSON only:
   "bullets": ["Short key point 1", "Short key point 2", "Short key point 3"]
 }`;
 
-    const result = await model.generateContent(prompt);
+    const result = await jsonModel.generateContent(jsonPrompt);
     const raw = result.response.text().trim();
 
     let parsed: { overview?: string; starStory?: string; bullets?: string[] } = {};
