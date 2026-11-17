@@ -4,7 +4,7 @@ const path = require('path');
 
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('pitchpilot', process.execPath, [path.resolve(process.argv[1])]);
+    app.setAsDefaultProtocolClient('pitchpilot', process.execPath, [path.resolve(process.argv)]);
   }
 } else {
   app.setAsDefaultProtocolClient('pitchpilot');
@@ -53,52 +53,47 @@ app.on('open-url', (event, urlStr) => {
   handleDeepLink(urlStr);
 });
 
+function toggleVisibility() {
+  if (!overlayWindow) return;
+  overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
+}
+
+function toggleClickThrough() {
+  if (!overlayWindow) return;
+  clickThrough = !clickThrough;
+  overlayWindow.setIgnoreMouseEvents(clickThrough, { forward: true });
+  overlayWindow.webContents.send('click-through-status', clickThrough);
+}
+
 function createTray() {
   const iconDataUrl =
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVR42mNgGGjACMR/gfg/EGPg/0D8H4j/k2EAmYbhMoBsg4i2gJwB5BpAkgFkG0CSAeQagNsAMgzAZQAZBmAzgAwDcBlAhgG4DCDDAFwG4DaADANwGUAsAABv1xL1f8b67QAAAABJRU5ErkJggg==';
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAW0lEQVR4nGNgGAWjABbw////fwYGBgYGRkZGBhQxRkZGBgZGJBoFjI2N/7Nj4////w9mI5sJ0Q9iIxuAzQZ083BpwGYDuhno5uHSgM0GdPPQzcOlAZsN6OaNggEPAL1+F8f0W5/YAAAAAElFTkSuQmCC';
   const icon = nativeImage.createFromDataURL(iconDataUrl);
   tray = new Tray(icon);
   tray.setToolTip('PitchPilot Stealth HUD');
 
   const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show / Hide HUD (Ctrl+Shift+H)',
-      click: () => {
-        if (!overlayWindow) return;
-        overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
-      },
-    },
-    {
-      label: 'Toggle Click-Through (Ctrl+Shift+T)',
-      click: () => {
-        if (!overlayWindow) return;
-        clickThrough = !clickThrough;
-        overlayWindow.setIgnoreMouseEvents(clickThrough, { forward: true });
-        overlayWindow.webContents.send('click-through-status', clickThrough);
-      },
-    },
+    { label: 'Show / Hide HUD (Ctrl+Shift+H)', click: toggleVisibility },
+    { label: 'Toggle Click-Through (Ctrl+Shift+T)', click: toggleClickThrough },
     { type: 'separator' },
-    {
-      label: 'Quit PitchPilot Stealth HUD',
-      click: () => app.quit(),
-    },
+    { label: 'Quit PitchPilot Stealth HUD', click: () => app.quit() },
   ]);
 
   tray.setContextMenu(contextMenu);
-  tray.on('click', () => {
-    if (!overlayWindow) return;
-    overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
-  });
+  tray.on('click', toggleVisibility);
 }
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
     width: 440,
     height: 580,
+    minWidth: 340,
+    minHeight: 320,
     x: 40,
     y: 40,
     transparent: true,
     frame: false,
+    resizable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
@@ -125,16 +120,29 @@ function createOverlayWindow() {
     if (initialLink) handleDeepLink(initialLink);
   });
 
-  globalShortcut.register('CommandOrControl+Shift+H', () => {
-    if (!overlayWindow) return;
-    overlayWindow.isVisible() ? overlayWindow.hide() : overlayWindow.show();
-  });
+  globalShortcut.register('CommandOrControl+Shift+H', toggleVisibility);
+  globalShortcut.register('CommandOrControl+Shift+T', toggleClickThrough);
 
-  globalShortcut.register('CommandOrControl+Shift+T', () => {
+  const nudgeStep = 35;
+  globalShortcut.register('CommandOrControl+Alt+Up', () => {
     if (!overlayWindow) return;
-    clickThrough = !clickThrough;
-    overlayWindow.setIgnoreMouseEvents(clickThrough, { forward: true });
-    overlayWindow.webContents.send('click-through-status', clickThrough);
+    const [x, y] = overlayWindow.getPosition();
+    overlayWindow.setPosition(x, Math.max(0, y - nudgeStep));
+  });
+  globalShortcut.register('CommandOrControl+Alt+Down', () => {
+    if (!overlayWindow) return;
+    const [x, y] = overlayWindow.getPosition();
+    overlayWindow.setPosition(x, y + nudgeStep);
+  });
+  globalShortcut.register('CommandOrControl+Alt+Left', () => {
+    if (!overlayWindow) return;
+    const [x, y] = overlayWindow.getPosition();
+    overlayWindow.setPosition(Math.max(0, x - nudgeStep), y);
+  });
+  globalShortcut.register('CommandOrControl+Alt+Right', () => {
+    if (!overlayWindow) return;
+    const [x, y] = overlayWindow.getPosition();
+    overlayWindow.setPosition(x + nudgeStep, y);
   });
 }
 
@@ -183,9 +191,14 @@ ipcMain.on('quit-stealth-app', () => {
   app.quit();
 });
 
+ipcMain.on('resize-stealth-window', (_event, { width, height }) => {
+  if (!overlayWindow) return;
+  overlayWindow.setSize(width, height, true);
+});
+
 app.whenReady().then(() => {
-  createOverlayWindow();
   createTray();
+  createOverlayWindow();
   startLocalBridge();
 });
 
