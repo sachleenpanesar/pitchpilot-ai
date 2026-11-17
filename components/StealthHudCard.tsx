@@ -13,7 +13,7 @@ export default function StealthHudCard() {
     let active = true;
     async function checkHud() {
       try {
-        const res = await fetch("http://127.0.0");
+        const res = await fetch("http://127.0.0.1:4789/health");
         if (active) setHudOnline(res.ok);
       } catch {
         if (active) setHudOnline(false);
@@ -70,6 +70,8 @@ export default function StealthHudCard() {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <a
           href={RELEASE_DOWNLOAD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300"
         >
           <Download className="h-4 w-4" aria-hidden="true" />

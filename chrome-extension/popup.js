@@ -3,7 +3,7 @@
 const DEFAULT_API_ORIGIN = "https://pitchpilot-ai-ruddy.vercel.app";
 const STEALTH_HUD_BASE = "http://127.0.0.1:4789";
 const STEALTH_INSTALLER_URL =
-  "https://github.com/sachleenpanesar/pitchpilot-ai/releases/latest/download/PitchPilot-Stealth-HUD-Setup.exe";
+  "https://github.com/sachleenpanesar/pitchpilot-ai/releases/tag/v0.1.0";
 
 const elements = {
   settingsToggle: document.getElementById("settings-toggle"),
@@ -148,7 +148,7 @@ async function syncContextToStealthHUD(autoLaunch = false) {
             return;
           }
         } catch {
-          setLiveStatus("Downloading latest Stealth HUD installer…");
+          setLiveStatus("Opening Stealth HUD release page…");
           chrome.tabs.create({ url: STEALTH_INSTALLER_URL, active: true });
         }
       }, 3000);
