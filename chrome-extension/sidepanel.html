@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light">
-    <title>PitchPilot AI — Prepare your session</title>
+    <meta name="color-scheme" content="light dark">
+    <title>PitchPilot Stealth Copilot Sidepanel</title>
     <link rel="stylesheet" href="sidepanel.css">
   </head>
   <body>
+    <!-- Optional Microphone Grant View -->
     <section id="mic-grant-view" class="mic-grant-view" hidden aria-labelledby="mic-grant-heading">
       <div class="panel mic-grant-panel">
         <p class="eyebrow">MICROPHONE PERMISSION</p>
@@ -16,228 +17,257 @@
         <button id="mic-grant-action" class="button button-secondary button-wide" type="button" hidden>Close this tab</button>
       </div>
     </section>
-    <main class="shell">
-      <header class="topbar">
+
+    <main class="popup-copilot">
+      <!-- Top Stealth Control Bar -->
+      <header class="stealth-topbar">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">P</span>
-          <div>
-            <p class="eyebrow">PITCHPILOT AI</p>
-            <h1>Prepare your session</h1>
+          <div class="brand-copy">
+            <strong>PitchPilot AI</strong>
+            <span>Stealth Copilot</span>
           </div>
         </div>
-        <nav class="top-actions" aria-label="Account actions">
-          <div class="stealth-controls" aria-label="Stealth mode quick actions">
-            <button id="panic-hide-btn" class="button button-secondary stealth-button" type="button" title="Panic Hide (Esc / Ctrl+Shift+H)" aria-label="Panic Hide (Esc / Ctrl+Shift+H)">🛡️ Panic Hide (Esc)</button>
-            <button id="camouflage-toggle" class="button button-secondary stealth-button" type="button" title="Toggle VS Code Theme Camouflage" aria-label="Toggle VS Code Theme Camouflage">💻 VS Code Theme</button>
-            <button id="stealth-settings-toggle" class="button button-secondary stealth-button" type="button" title="Stealth Controls" aria-label="Stealth mode settings">⚙️ Stealth Controls</button>
+
+        <div class="stealth-controls">
+          <button id="panic-hide-btn" class="stealth-btn panic-btn" type="button" title="Panic Hide (Esc or Ctrl+Shift+H)">🛡️ Panic Hide</button>
+          <button id="camouflage-toggle" class="stealth-btn theme-btn" type="button" title="Toggle VS Code Theme Camouflage">💻 VS Code</button>
+          <div class="opacity-group">
+            <label for="stealth-opacity">Opacity: <span id="opacity-value">100%</span></label>
+            <input id="stealth-opacity" type="range" min="0.2" max="1.0" step="0.05" value="1.0">
           </div>
-          <a id="support-link" class="top-link" href="#">Support</a>
-          <span id="credit-badge" class="credit-badge" aria-live="polite">Connect account</span>
-          <a id="upgrade-link" class="top-link top-link-upgrade" href="#">Upgrade</a>
-          <button id="settings-toggle" class="icon-button" type="button" aria-label="Connection settings" aria-controls="connection-settings" aria-expanded="false" title="Connection settings">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .8v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.8l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.8-3H4a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .8-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.8V2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .8l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .8 3h.2a1.8 1.8 0 0 1 0 3.6H20a1.8 1.8 0 0 0-.6 2.9Z"/></svg>
-        </button>
-        </nav>
+          <label class="title-disguise-label" for="disguise-title-toggle">
+            <input id="disguise-title-toggle" type="checkbox">
+            <span>Title Disguise</span>
+          </label>
+          <button id="settings-toggle" class="icon-button" type="button" aria-label="Open connection settings" aria-controls="connection-settings" aria-expanded="false" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .8v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.8l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.8-3H4a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .8-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.8V2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .8l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .8 3h.2a1.8 1.8 0 0 1 0 3.6H20a1.8 1.8 0 0 0-.6 2.9Z"/></svg>
+          </button>
+        </div>
       </header>
 
-      <section id="stealth-controls-panel" class="panel stealth-panel" hidden aria-label="Stealth mode settings">
-        <div class="settings-heading">
-          <h3>Stealth Controls</h3>
-          <p class="hint">Esc / Ctrl+Shift+H to Panic Hide</p>
+      <!-- Account & Status Header Bar -->
+      <section class="account-bar" aria-live="polite">
+        <div class="account-status">
+          <span class="status-indicator-dot"></span>
+          <span class="eyebrow">STATUS:</span>
+          <strong id="credit-badge" class="credit-badge">Connecting…</strong>
         </div>
-        <label class="field" for="stealth-opacity">Window Opacity
-          <input id="stealth-opacity" type="range" min="0.1" max="1.0" step="0.05" value="1.0">
-        </label>
-        <label class="toggle-row" for="disguise-title-toggle">
-          <span><strong>Title Disguise</strong><span class="hint">Spoof window title as 'README.md - Visual Studio Code'</span></span>
-          <input id="disguise-title-toggle" type="checkbox">
-        </label>
+        <div class="account-actions">
+          <button id="connect-account" class="action-text-btn" type="button">Connect</button>
+          <a id="upgrade-link" class="upgrade-link" href="#" target="_blank">Upgrade ↗</a>
+        </div>
       </section>
 
-      <div class="workspace">
-        <aside class="session-sidebar" aria-label="Session setup steps">
-          <p class="sidebar-label">PREPARE YOUR SESSION</p>
-          <ol class="stepper" aria-label="Session setup progress">
-            <li><button id="step-context-indicator" class="step-marker active" type="button" aria-current="step"><span>1</span><strong>Context</strong></button></li>
-            <li class="step-line" aria-hidden="true"><span>→</span></li>
-            <li><button id="step-preferences-indicator" class="step-marker" type="button"><span>2</span><strong>Preferences</strong></button></li>
-          </ol>
-          <div class="account-footer">
-            <span class="sidebar-label">SIGNED IN AS</span>
-            <strong id="signed-user" title="Not connected">Not connected</strong>
+      <!-- Layout with Left Numbered Step Sidebar + Card Panel Content -->
+      <div class="popup-body">
+        <!-- Numbered Step Navigation Sidebar -->
+        <aside class="steps-sidebar" aria-label="Copilot Steps Navigation">
+          <ul class="step-list">
+            <li class="step-item active" data-step="context" id="step-context-indicator">
+              <span class="step-number">1</span>
+              <div class="step-info">
+                <strong>Context</strong>
+                <span>Job & Vault</span>
+              </div>
+            </li>
+            <li class="step-item" data-step="preferences" id="step-preferences-indicator">
+              <span class="step-number">2</span>
+              <div class="step-info">
+                <strong>Preferences</strong>
+                <span>Mode & Voice</span>
+              </div>
+            </li>
+            <li class="step-item" data-step="copilot" id="step-copilot-indicator">
+              <span class="step-number">3</span>
+              <div class="step-info">
+                <strong>Live Copilot</strong>
+                <span>AI Answers</span>
+              </div>
+            </li>
+          </ul>
+          <div style="margin-top:auto; padding-top:12px; border-top:1px solid var(--border-color); font-size:10px; color:var(--text-secondary);">
+            <span>Signed in as:</span>
+            <strong id="signed-user" style="display:block; truncate; color:var(--text-primary);">Not connected</strong>
           </div>
         </aside>
-        <div class="content-column">
-      <div id="status" class="status" role="status" aria-live="polite" data-state="idle">
-        <span class="status-dot" aria-hidden="true"></span>
-        <div class="status-copy">
-          <strong id="status-title">Build your session context</strong>
-          <span id="status-detail">Connect your account, then add context and preferences.</span>
+
+        <!-- Main Card Workspace -->
+        <div class="card-workspace">
+          <!-- Setup / Context Panel (Step 1 & 2 combined or wizard) -->
+          <section id="setup-view" class="panel-card" aria-label="Session setup">
+            <div id="context-step" class="wizard-step">
+              <div class="panel-header-title">
+                <h2>1. Context Setup</h2>
+                <span class="step-tag">Step 1 of 3</span>
+              </div>
+
+              <div class="tab-row session-choice">
+                <button type="button" class="tab-btn choice-button active" data-session-type="INTERVIEW">Interview</button>
+                <button type="button" class="tab-btn choice-button" data-session-type="MEETING">Meeting</button>
+              </div>
+
+              <div class="field-group">
+                <label for="job-description">Job description / Meeting agenda</label>
+                <textarea id="job-description" rows="3" placeholder="Paste requirements or agenda for instant AI context…"></textarea>
+              </div>
+
+              <div class="import-action-row">
+                <button id="import-tab" class="btn btn-secondary" type="button">📄 Import Tab Text</button>
+                <label class="btn btn-secondary file-button" for="brief-file">Upload brief
+                  <input id="brief-file" type="file" accept=".txt,.md,text/plain,text/markdown" hidden>
+                </label>
+              </div>
+
+              <div class="field-group">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <label for="resume-select">Saved CV / Resume</label>
+                  <label class="link-btn" for="resume-file" style="cursor:pointer;">Upload Resume
+                    <input id="resume-file" type="file" accept=".pdf,.docx,.txt" hidden>
+                  </label>
+                </div>
+                <select id="resume-select">
+                  <option value="">No CV selected</option>
+                </select>
+                <p id="resume-status" class="hint" role="status" aria-live="polite"></p>
+              </div>
+
+              <div class="field-group">
+                <label for="document-select">Career Vault Selector (Resumes & STAR Stories)</label>
+                <select id="document-select" multiple size="3"></select>
+              </div>
+
+              <div class="controls-row">
+                <button id="next-step" class="btn btn-primary" type="button">Continue to Preferences →</button>
+              </div>
+            </div>
+
+            <div id="preferences-step" class="wizard-step" hidden>
+              <div class="panel-header-title">
+                <h2>2. Preferences & Voice</h2>
+                <span class="step-tag">Step 2 of 3</span>
+              </div>
+
+              <div class="field-group">
+                <label for="language-select">Response Language</label>
+                <select id="language-select">
+                  <option>English</option>
+                  <option>Spanish</option>
+                  <option>French</option>
+                  <option>German</option>
+                  <option>Hindi</option>
+                  <option>Mandarin Chinese</option>
+                  <option>Japanese</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label for="answer-style">Answer Style</label>
+                <select id="answer-style">
+                  <option value="Concise">Concise and direct</option>
+                  <option value="Structured">Structured with key points</option>
+                  <option value="Detailed">Detailed explanation</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label for="session-id">PitchPilot Session ID (Optional)</label>
+                <input id="session-id" type="text" maxlength="128" placeholder="Paste existing session ID">
+              </div>
+
+              <div class="controls-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+                <label class="checkbox-label" for="auto-answer">
+                  <input id="auto-answer" type="checkbox">
+                  <span>Auto-Answer Voice after 1.5s silence</span>
+                </label>
+                <div style="display:flex; justify-content:space-between; gap:8px;">
+                  <button id="back-to-context" class="btn btn-secondary" type="button">Back</button>
+                  <button id="start-session" class="btn btn-primary" type="button">Start Live Copilot</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Live Copilot AI Response View -->
+          <section id="live-view" class="panel-card" aria-label="Live copilot AI response" hidden>
+            <div class="panel-header-title">
+              <div class="live-status-badge">
+                <span class="pulsing-dot" aria-hidden="true"></span>
+                <span id="live-session-type">Live Copilot Active</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="timer"><span class="timer-dot"></span><time id="elapsed-time">00:00</time></div>
+                <button id="back-to-setup" class="link-btn" type="button">Edit Setup</button>
+              </div>
+            </div>
+
+            <div class="live-actions-row">
+              <button id="listen-button" class="btn btn-primary" type="button">🎤 Start Listening</button>
+              <button id="share-screen-button" class="btn btn-secondary" type="button">🖥️ Share Screen</button>
+              <button id="solve-button" class="btn btn-secondary" type="button">📸 Scan Screen</button>
+            </div>
+
+            <label class="checkbox-label" for="live-auto-answer">
+              <input id="live-auto-answer" type="checkbox">
+              <span>Auto-answer speech & scan screen every 15s</span>
+            </label>
+            <p id="screen-scan-status" class="hint" role="status" aria-live="polite">Scan Screen is off.</p>
+
+            <section id="screen-preview-panel" class="panel screen-preview-panel" aria-label="Shared screen preview" hidden>
+              <div class="screen-preview-heading">
+                <strong>Screen share preview</strong>
+                <button id="stop-screen-share" class="link-btn" type="button">Stop sharing</button>
+              </div>
+              <video id="screen-preview" autoplay muted playsinline style="width:100%; max-height:100px; border-radius:6px; background:#000;"></video>
+            </section>
+
+            <div class="field-group">
+              <label for="question">Recognized Question / Prompt</label>
+              <div class="input-with-button">
+                <textarea id="question" rows="2" placeholder="Type question or use voice transcription…"></textarea>
+                <button id="ask-button" class="btn btn-primary" type="button">Ask AI</button>
+              </div>
+            </div>
+
+            <div id="results" class="ai-response-container" aria-live="polite">
+              <div class="placeholder-result">AI copilot is ready. Start listening or ask a question to generate prompt solutions.</div>
+            </div>
+
+            <button id="end-session" class="btn btn-secondary" type="button" style="width:100%; color:#dc2626; border-color:#fca5a5;">End Session</button>
+          </section>
         </div>
       </div>
-      <p id="app-message" class="app-message" role="alert" hidden></p>
-      <button id="enable-microphone" class="button button-secondary button-wide mic-permission-action" type="button" hidden>Enable Microphone</button>
 
-      <section id="setup-view" class="view">
-        <section id="context-step" class="panel wizard-step" aria-labelledby="context-heading">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">STEP 1</p>
-              <h2 id="context-heading" tabindex="-1">Session context</h2>
-            </div>
-          </div>
-
-          <fieldset class="session-choice">
-            <legend>Session type</legend>
-            <div class="choice-row">
-              <button type="button" class="choice-button active" data-session-type="INTERVIEW">Interview</button>
-              <button type="button" class="choice-button" data-session-type="MEETING">Regular Meeting</button>
-            </div>
-          </fieldset>
-
-          <label class="field" for="job-description">Job description or meeting brief
-            <textarea id="job-description" rows="5" maxlength="20000" placeholder="Paste the role description or meeting agenda for more relevant suggestions…"></textarea>
-          </label>
-          <div class="import-row">
-            <button id="import-tab" class="button button-secondary" type="button">Import from Current Tab</button>
-            <label class="button button-secondary file-button" for="brief-file">Upload brief
-              <input id="brief-file" type="file" accept=".txt,.md,text/plain,text/markdown">
-            </label>
-          </div>
-          <p class="hint">Import reads visible page text after you click. Upload a plain-text or Markdown brief.</p>
-
-          <div class="field resume-field">
-            <div class="resume-field-head">
-              <label for="resume-select">Saved CV / Resume</label>
-              <label class="button button-secondary file-button resume-upload-button" for="resume-file">
-                Upload Resume
-                <input id="resume-file" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
-              </label>
-            </div>
-            <select id="resume-select">
-              <option value="">No CV selected</option>
-            </select>
-            <p id="resume-status" class="hint" role="status" aria-live="polite"></p>
-          </div>
-          <label class="field" for="document-select">Saved Documents <span class="optional">(optional, multi-select)</span>
-            <select id="document-select" multiple size="4" aria-describedby="documents-help"></select>
-          </label>
-          <p id="documents-help" class="hint">Use Ctrl or Command to select more than one document.</p>
-          <p id="documents-status" class="hint" role="status"></p>
-
-          <button id="next-step" class="button button-primary button-wide" type="button">Continue to Preferences <span aria-hidden="true">→</span></button>
-        </section>
-
-        <section id="preferences-step" class="panel wizard-step" aria-labelledby="preferences-heading" hidden>
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">STEP 2</p>
-              <h2 id="preferences-heading" tabindex="-1">Your preferences</h2>
-            </div>
-          </div>
-          <label class="field" for="language-select">Response language
-            <select id="language-select">
-              <option>English</option>
-              <option>Spanish</option>
-              <option>French</option>
-              <option>German</option>
-              <option>Hindi</option>
-              <option>Mandarin Chinese</option>
-              <option>Japanese</option>
-            </select>
-          </label>
-          <label class="field" for="answer-style">Answer style
-            <select id="answer-style">
-              <option value="Concise">Concise and direct</option>
-              <option value="Structured">Structured with key points</option>
-              <option value="Detailed">Detailed explanation</option>
-            </select>
-          </label>
-          <label class="toggle-row" for="auto-answer">
-            <span>
-              <strong>Auto-Answer</strong>
-              <span class="hint">Send recognized speech after 1.5 seconds of silence.</span>
-            </span>
-            <input id="auto-answer" type="checkbox">
-          </label>
-          <label class="field" for="session-id">PitchPilot session ID <span class="optional">(optional)</span>
-            <input id="session-id" type="text" maxlength="128" autocomplete="off" placeholder="Add an existing session for its context">
-          </label>
-          <div class="step-actions">
-            <button id="back-to-context" class="button button-secondary" type="button">Back</button>
-            <button id="start-session" class="button button-primary" type="button">Start Session</button>
-          </div>
-        </section>
-      </section>
-
-      <section id="live-view" class="view" hidden>
-        <div class="live-heading">
+      <!-- Settings Panel (Hidden by default) -->
+      <details id="connection-settings" class="settings-panel popup-panel" hidden>
+        <summary style="display:none">Settings</summary>
+        <div class="settings-heading">
           <div>
-            <p id="live-session-type" class="eyebrow">INTERVIEW SESSION</p>
-            <h2>Live Copilot</h2>
+            <span class="eyebrow">CONFIGURATION</span>
+            <h2 id="settings-heading">Connection Settings</h2>
           </div>
-          <div class="timer" aria-label="Elapsed time"><span class="timer-dot"></span><time id="elapsed-time">00:00</time></div>
+          <button id="settings-close" class="close-button" type="button" aria-label="Close settings">×</button>
         </div>
-        <div class="live-actions">
-          <button id="listen-button" class="button button-primary" type="button">Start listening</button>
-          <button id="share-screen-button" class="button button-secondary" type="button">Share Screen</button>
-          <button id="solve-button" class="button button-secondary" type="button">Solve Screen Now</button>
-        </div>
-        <p class="hint screen-share-disclosure">If you share your screen, let other participants know when Copilot is active.</p>
-        <label class="toggle-row live-auto-answer" for="live-auto-answer">
-          <span>
-            <strong>Auto-Answer</strong>
-            <span class="hint">Automatically answer speech and scan the screen every 15 seconds.</span>
-          </span>
-          <input id="live-auto-answer" type="checkbox">
-        </label>
-        <p id="screen-scan-status" class="hint screen-scan-status" role="status" aria-live="polite">Scan Screen for Code / Questions is off.</p>
-        <section id="screen-preview-panel" class="panel screen-preview-panel" aria-label="Shared screen preview" hidden>
-          <div class="screen-preview-heading">
-            <div>
-              <strong>Screen share preview</strong>
-              <span id="screen-share-status">Sharing is active.</span>
-            </div>
-            <button id="stop-screen-share" class="button button-quiet" type="button">Stop sharing</button>
-          </div>
-          <video id="screen-preview" autoplay muted playsinline></video>
-        </section>
-
-        <section class="panel question-panel" aria-labelledby="question-heading">
-          <h3 id="question-heading" class="section-title">Ask or dictate</h3>
-          <label class="field" for="question">Question or prompt
-            <textarea id="question" rows="4" maxlength="12000" placeholder="Type a question, or start listening to dictate…"></textarea>
-          </label>
-          <button id="ask-button" class="button button-primary button-wide" type="button">Get Answer</button>
-        </section>
-        <section id="results" class="results" aria-label="Copilot answers" aria-live="polite"></section>
-        <button id="end-session" class="button button-quiet button-wide" type="button">End Session</button>
-      </section>
-
-      <details id="connection-settings" class="panel settings">
-        <summary class="section-title">Connection settings</summary>
-        <label class="field" for="backend-origin">Backend URL
-          <input id="backend-origin" type="url" autocomplete="url" spellcheck="false">
-        </label>
-        <label class="field" for="api-token">30-day extension token
-          <input id="api-token" type="password" autocomplete="off" spellcheck="false" placeholder="Create one from Extension Access">
-        </label>
-        <button id="connect-account" class="button button-secondary button-wide" type="button">Connect signed-in account</button>
+        <label for="backend-origin">Backend URL</label>
+        <input id="backend-origin" type="url" autocomplete="url" spellcheck="false">
+        <label for="api-token">30-day extension token</label>
+        <input id="api-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste token from Extension Access">
+        <a id="extension-access-link" class="manual-token-link" href="#" target="_blank">Get a token manually</a>
         <label class="remember-row" for="remember-token">
           <input id="remember-token" type="checkbox">
           <span>Remember token on this device</span>
         </label>
-        <p class="privacy">Tokens are session-only by default. If automatic connection is unavailable, create a token at <a id="extension-access-link" href="#">Extension Access</a>. Screenshots and text go only to your configured backend.</p>
-        <div class="settings-actions">
-          <button id="save-settings" class="button button-secondary" type="button">Save settings</button>
-          <button id="clear-token" class="button button-quiet" type="button">Clear token</button>
+        <div style="display:flex; gap:8px;">
+          <button id="connect-account" class="save-button" type="button" style="flex:1;">Connect Account</button>
+          <button id="save-settings" class="btn btn-secondary" type="button" style="flex:1;">Save Settings</button>
         </div>
-        <p id="settings-message" class="message" role="status" aria-live="polite"></p>
+        <button id="clear-token" class="link-btn" type="button" style="color:#dc2626;">Clear stored token</button>
+        <p id="settings-message" class="settings-message" role="status" aria-live="polite"></p>
       </details>
 
-        </div>
-      </div>
-      <p class="footer">Use only where permitted. Let participants know when Copilot is active during a shared session.</p>
+      <footer class="footer-note">
+        <a id="support-link" href="#" target="_blank">Support</a> · Undetectable Screen Share Cloak Active
+      </footer>
     </main>
     <script src="common.js"></script>
     <script src="sidepanel.js"></script>
