@@ -3,49 +3,119 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light">
-    <title>PitchPilot AI</title>
+    <meta name="color-scheme" content="light dark">
+    <title>PitchPilot Stealth Copilot</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
-    <main class="popup">
-      <header class="brand">
-        <span class="brand-mark" aria-hidden="true">P</span>
-        <div class="brand-copy">
-          <strong>PitchPilot AI</strong>
-          <span>Meeting & interview copilot</span>
+    <main class="popup-copilot">
+      <!-- Header with Stealth Controls & Settings Trigger -->
+      <header class="popup-header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <div class="brand-copy">
+            <strong>PitchPilot AI</strong>
+            <span>Stealth Copilot</span>
+          </div>
         </div>
-        <button id="settings-toggle" class="icon-button" type="button" aria-label="Open connection settings" aria-controls="settings-panel" aria-expanded="false" title="Settings">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .8v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.8l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.8-3H4a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .8-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.8V2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .8l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .8 3h.2a1.8 1.8 0 0 1 0 3.6H20a1.8 1.8 0 0 0-.6 2.9Z"/></svg>
-        </button>
+        <div class="header-actions">
+          <button id="panic-button" class="stealth-btn panic-btn" type="button" title="Panic Hide (Esc or Ctrl+Shift+H)">🛡️ Panic Hide</button>
+          <button id="theme-button" class="stealth-btn theme-btn" type="button" title="Toggle VS Code Theme Camouflage">💻 VS Code</button>
+          <button id="settings-toggle" class="icon-button" type="button" aria-label="Open connection settings" aria-controls="settings-panel" aria-expanded="false" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3 .8v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3-.8l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-.8-3H4a1.8 1.8 0 0 1 0-3.6h.2a1.8 1.8 0 0 0 .8-3l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3-.8V2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3 .8l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 .8 3h.2a1.8 1.8 0 0 1 0 3.6H20a1.8 1.8 0 0 0-.6 2.9Z"/></svg>
+          </button>
+        </div>
       </header>
 
-      <section id="home-panel" class="popup-panel" aria-label="PitchPilot home">
+      <!-- Stealth Controls Advanced Bar (Opacity Slider & Title Disguise) -->
+      <section id="stealth-advanced-bar" class="stealth-advanced-bar">
+        <div class="slider-group">
+          <label for="opacity-slider">Opacity: <span id="opacity-value">100%</span></label>
+          <input id="opacity-slider" type="range" min="0.2" max="1.0" step="0.05" value="1.0">
+        </div>
+        <label class="checkbox-label" for="title-disguise-toggle">
+          <input id="title-disguise-toggle" type="checkbox">
+          <span>Title Disguise (VS Code README)</span>
+        </label>
+      </section>
+
+      <!-- Account & Credit Status Row -->
       <section class="credit-row" aria-live="polite">
         <div>
-          <span class="eyebrow">YOUR ACCOUNT</span>
-          <strong id="credit-badge" class="credit-badge">Connect token</strong>
+          <span class="eyebrow">ACCOUNT STATUS</span>
+          <strong id="credit-badge" class="credit-badge">Connecting…</strong>
         </div>
-        <a id="upgrade-link" class="upgrade-link" href="#">Upgrade <span aria-hidden="true">↗</span></a>
+        <div class="account-links">
+          <button id="connect-account" class="action-text-btn" type="button">Connect</button>
+          <a id="upgrade-link" class="upgrade-link" href="#" target="_blank">Upgrade ↗</a>
+        </div>
       </section>
 
-      <button id="open-panel" class="open-panel" type="button">
-        <span class="open-icon" aria-hidden="true">↗</span>
-        <span><strong>Open Floating Window</strong><small>Prepare a session and start your copilot</small></span>
-      </button>
+      <!-- Full Copilot Interface Workspace -->
+      <div id="main-workspace" class="main-workspace">
+        <!-- Setup / Context Wizard -->
+        <section id="setup-panel" class="panel-section" aria-label="Session setup">
+          <div class="tab-row">
+            <button type="button" class="tab-btn active" data-session-type="INTERVIEW">Interview</button>
+            <button type="button" class="tab-btn" data-session-type="MEETING">Meeting</button>
+          </div>
 
-      <nav class="quick-links" aria-label="Quick links">
-        <a id="support-link" href="#">Support</a>
-        <button id="connect-account" class="quick-link-button" type="button">Connect account</button>
-      </nav>
-      <p class="panel-hint">Step 1 · Connect your account, then open the PitchPilot window to prepare context and preferences.</p>
-      </section>
+          <div class="field-group">
+            <label for="job-description">Job description / Meeting agenda</label>
+            <textarea id="job-description" rows="3" placeholder="Paste requirements or agenda for instant AI context…"></textarea>
+          </div>
 
+          <div class="import-action-row">
+            <button id="import-tab" class="btn btn-secondary" type="button">📄 Import Tab Text</button>
+          </div>
+
+          <div class="field-group">
+            <label for="document-select">Career Vault Selector (Resumes & STAR Stories)</label>
+            <select id="document-select" multiple size="3"></select>
+          </div>
+
+          <div class="controls-row">
+            <label class="checkbox-label" for="auto-answer-toggle">
+              <input id="auto-answer-toggle" type="checkbox">
+              <span>Auto-Answer Voice</span>
+            </label>
+            <button id="start-session-btn" class="btn btn-primary" type="button">Start Live Copilot</button>
+          </div>
+        </section>
+
+        <!-- Live Copilot AI Response View -->
+        <section id="live-panel" class="panel-section" aria-label="Live copilot AI response" hidden>
+          <div class="live-status-bar">
+            <span class="pulsing-dot" aria-hidden="true"></span>
+            <span id="live-status-text">Listening for meeting questions…</span>
+            <button id="back-to-setup" class="link-btn" type="button">Edit Setup</button>
+          </div>
+
+          <div class="field-group">
+            <label for="question-input">Recognized Question / Prompt</label>
+            <div class="input-with-button">
+              <textarea id="question-input" rows="2" placeholder="Type question or use voice transcription…"></textarea>
+              <button id="ask-btn" class="btn btn-primary" type="button">Ask AI</button>
+            </div>
+          </div>
+
+          <div class="live-actions-row">
+            <button id="listen-toggle-btn" class="btn btn-secondary" type="button">🎤 Start Listening</button>
+            <button id="solve-screen-btn" class="btn btn-secondary" type="button">📸 Scan Screen</button>
+          </div>
+
+          <div id="ai-response-container" class="ai-response-container" aria-live="polite">
+            <div class="placeholder-result">AI copilot is ready. Start listening or ask a question to generate prompt solutions.</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Settings Panel (Hidden by default) -->
       <section id="settings-panel" class="settings-panel popup-panel" aria-labelledby="settings-heading" hidden>
         <div class="settings-heading">
           <div>
-            <span class="eyebrow">CONNECTION</span>
-            <h2 id="settings-heading">Connection settings</h2>
+            <span class="eyebrow">CONFIGURATION</span>
+            <h2 id="settings-heading">Connection Settings</h2>
           </div>
           <button id="settings-close" class="close-button" type="button" aria-label="Close settings">×</button>
         </div>
@@ -53,17 +123,18 @@
         <input id="backend-origin" type="url" autocomplete="url" spellcheck="false">
         <label for="extension-token">30-day extension token</label>
         <input id="extension-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste token from Extension Access">
-        <a id="manual-token-link" class="manual-token-link" href="#">Get a token manually</a>
+        <a id="manual-token-link" class="manual-token-link" href="#" target="_blank">Get a token manually</a>
         <label class="remember-row" for="remember-token">
           <input id="remember-token" type="checkbox">
           <span>Remember token on this device</span>
         </label>
-        <p class="settings-hint">Tokens are session-only by default. Remembered tokens are stored in Chrome profile storage.</p>
-        <button id="save-settings" class="save-button" type="button">Save settings</button>
+        <button id="save-settings" class="save-button" type="button">Save Settings</button>
         <p id="settings-message" class="settings-message" role="status" aria-live="polite"></p>
       </section>
 
-      <p class="footer">Use only where permitted. Verify AI suggestions before relying on them.</p>
+      <footer class="footer-note">
+        <a id="support-link" href="#" target="_blank">Support</a> · Undetectable Screen Share Cloak Active
+      </footer>
     </main>
     <script src="common.js"></script>
     <script src="popup.js"></script>

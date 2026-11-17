@@ -60,26 +60,20 @@ export default function LaunchCopilotButton() {
       if (detected?.available) {
         const result = await requestExtension("OPEN_PITCHPILOT_EXTENSION", 2500)
         if (result?.opened) {
+          setMessage("Chrome extension pop-up activated.")
           return
+        }
+        if (result?.error) {
+          console.warn("Could not trigger extension popup directly:", result.error)
         }
       }
 
-      const copilotUrl = "/copilot/new"
-      const width = 940
-      const height = 660
-      const left = Math.max(0, Math.round((window.innerWidth - width) / 2))
-      const top = Math.max(0, Math.round((window.innerHeight - height) / 2))
-      const popup = window.open(
-        copilotUrl,
-        "PitchPilotPopup",
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-      )
-      if (!popup) {
-        router.push(copilotUrl)
-      }
+      setMessage("Please install or pin the Chrome extension to open the stealth pop-up tool.")
+      router.push("/extension-access")
     } catch (error) {
-      console.error("Could not launch popup session:", error)
-      router.push("/copilot/new")
+      console.error("Could not launch Chrome extension popup tool:", error)
+      setMessage("Could not communicate with the extension. Check setup instructions.")
+      router.push("/extension-access")
     } finally {
       setBusy(false)
     }
@@ -95,7 +89,7 @@ export default function LaunchCopilotButton() {
         className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3.5 font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all hover:-translate-y-0.5 hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:cursor-wait disabled:opacity-70"
       >
         <Video className="h-5 w-5" aria-hidden="true" />
-        {busy ? "Launching session…" : "Launch Copilot"}
+        {busy ? "Opening Extension Pop-up…" : "Launch Copilot Pop-up"}
       </button>
       {message && (
         <p id="launch-copilot-message" className="max-w-xs text-xs leading-5 text-amber-200" role="status" aria-live="polite">

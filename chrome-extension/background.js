@@ -33,7 +33,7 @@ async function findCopilotWindow(copilotUrl) {
       try {
         const url = new URL(tab.url);
         return url.origin === expected.origin
-          && url.pathname === expected.pathname
+          && (url.pathname === expected.pathname || url.pathname === "/popup.html" || url.pathname === "/sidepanel.html")
           && url.searchParams.get("grantMic") !== "1";
       } catch {
         return false;
@@ -51,7 +51,16 @@ async function openCopilotWindow(targetTabId) {
     await chrome.storage.session.set({ [TARGET_TAB_STORAGE_KEY]: targetTabId });
   }
 
-  const copilotUrl = chrome.runtime.getURL("sidepanel.html");
+  try {
+    if (chrome.action && typeof chrome.action.openPopup === "function") {
+      await chrome.action.openPopup();
+      return;
+    }
+  } catch (error) {
+    console.warn("chrome.action.openPopup failed, falling back to window:", error);
+  }
+
+  const copilotUrl = chrome.runtime.getURL("popup.html");
   const existing = await findCopilotWindow(copilotUrl);
   const { left, top } = await getCenteredCoordinates(COPILOT_WINDOW_WIDTH, COPILOT_WINDOW_HEIGHT);
 

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PitchPilot AI",
   "version": "1.1.0",
-  "description": "Prepare a session, then use PitchPilot in a floating window.",
+  "description": "Popup-native stealth AI copilot tool for Microsoft Teams, Google Meet, and Zoom screen sharing.",
   "minimum_chrome_version": "116",
   "permissions": ["tabs", "activeTab", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
@@ -11,7 +11,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Open PitchPilot"
+    "default_title": "PitchPilot Stealth Copilot"
   },
   "content_scripts": [
     {

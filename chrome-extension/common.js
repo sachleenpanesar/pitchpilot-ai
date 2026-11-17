@@ -44,8 +44,13 @@
   }
 
   async function loadSettings() {
-    await chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
-    await chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+    try {
+      if (chrome.storage?.session?.setAccessLevel) {
+        await chrome.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+      }
+    } catch (error) {
+      console.warn("Could not set session storage access level:", error);
+    }
     const [stored, session] = await Promise.all([
       chrome.storage.local.get(SETTINGS_KEY),
       chrome.storage.session.get(SESSION_TOKEN_KEY),
@@ -271,6 +276,18 @@
     return payload;
   }
 
+  async function openCopilotPopup() {
+    try {
+      if (chrome.action && typeof chrome.action.openPopup === "function") {
+        await chrome.action.openPopup();
+        return;
+      }
+    } catch (error) {
+      console.warn("chrome.action.openPopup failed, falling back to window:", error);
+    }
+    await openCopilotWindow();
+  }
+
   async function openCopilotWindow() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (typeof tab?.id !== "number") {
@@ -297,6 +314,7 @@
     clearToken,
     connectAccount,
     requestJson,
+    openCopilotPopup,
     openCopilotWindow,
     openAppPage,
     normalizeApiOrigin,
