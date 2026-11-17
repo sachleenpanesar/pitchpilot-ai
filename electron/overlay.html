@@ -1,606 +1,879 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>PitchPilot Stealth HUD</title>
-  <style>
-    :root {
-      --bg-opacity: 0.92;
-      --font-size: 13.5px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: transparent;
-      color: #f8fafc;
-      overflow: hidden;
-      user-select: none;
-    }
-    #hud {
-      width: 100vw;
-      height: 100vh;
-      background: rgba(10, 15, 28, var(--bg-opacity));
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.65);
-    }
-    #titlebar {
-      -webkit-app-region: drag;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: rgba(15, 23, 42, 0.9);
-      border-bottom: 1px solid rgba(51, 65, 85, 0.65);
-      border-top-left-radius: 14px;
-      border-top-right-radius: 14px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 11.5px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: #38bdf8;
-    }
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #10b981;
-      box-shadow: 0 0 8px #10b981;
-    }
-    .controls {
-      -webkit-app-region: no-drag;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    button.ctrl-btn {
-      background: rgba(30, 41, 59, 0.9);
-      border: 1px solid rgba(71, 85, 105, 0.7);
-      color: #cbd5e1;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 7px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button.ctrl-btn:hover {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: #38bdf8;
-      color: #fff;
-    }
-    button.ctrl-btn.active {
-      background: rgba(16, 185, 129, 0.25);
-      border-color: #10b981;
-      color: #6ee7b7;
-    }
-    button#closeBtn:hover {
-      background: rgba(239, 68, 68, 0.35);
-      border-color: #ef4444;
-      color: #fca5a5;
-    }
-    #inputRow {
-      -webkit-app-region: no-drag;
-      display: flex;
-      gap: 6px;
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(51, 65, 85, 0.45);
-    }
-    #promptInput {
-      flex: 1;
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid rgba(71, 85, 105, 0.8);
-      border-radius: 8px;
-      color: #f8fafc;
-      padding: 7px 10px;
-      font-size: 12.5px;
-      outline: none;
-    }
-    #promptInput:focus { border-color: #38bdf8; }
-    #askBtn {
-      background: linear-gradient(135deg, #2563eb, #0284c7);
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      font-size: 12px;
-      padding: 0 12px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    #listenBtn {
-      background: rgba(30, 41, 59, 0.95);
-      border: 1px solid rgba(71, 85, 105, 0.85);
-      color: #e2e8f0;
-      font-weight: 600;
-      font-size: 12px;
-      padding: 0 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    #listenBtn.listening {
-      background: rgba(220, 38, 38, 0.25);
-      border-color: #ef4444;
-      color: #fca5a5;
-    }
-    #meterWrap {
-      height: 4px;
-      width: 100%;
-      background: rgba(15, 23, 42, 0.95);
-      overflow: hidden;
-    }
-    #meterBar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #10b981, #38bdf8);
-      transition: width 0.08s linear;
-    }
-    #content {
-      -webkit-app-region: no-drag;
-      flex: 1;
-      padding: 12px 14px;
-      overflow-y: auto;
-      font-size: var(--font-size);
-      line-height: 1.55;
-      color: #f1f5f9;
-      user-select: text;
-    }
-    .question-tag {
-      font-size: 11px;
-      font-weight: 600;
-      color: #38bdf8;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1px dashed rgba(56, 189, 248, 0.3);
-    }
-    .section-title {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #34d399;
-      margin-top: 10px;
-      margin-bottom: 4px;
-    }
-    .bullet-list { padding-left: 16px; margin-top: 4px; }
-    .bullet-list li { margin-bottom: 5px; }
-    .placeholder { color: #94a3b8; font-size: 12.5px; line-height: 1.6; }
-    #footer {
-      padding: 5px 12px;
-      background: rgba(15, 23, 42, 0.85);
-      border-top: 1px solid rgba(51, 65, 85, 0.55);
-      border-bottom-left-radius: 14px;
-      border-bottom-right-radius: 14px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 10.5px;
-      color: #94a3b8;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PitchPilot AI HUD</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  button {
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    color: #f8fafc;
+    overflow: hidden;
+    pointer-events: auto;
+  }
+
+  .hud-shell {
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(14px);
+    pointer-events: auto;
+  }
+
+  .hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    -webkit-app-region: drag;
+    cursor: move;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    color: #f8fafc;
+  }
+
+  .brand-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+  }
+
+  .brand-dot.listening {
+    background: #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+  }
+
+  .brand-dot.error {
+    background: #ef4444;
+    box-shadow: 0 0 10px #ef4444;
+  }
+
+  .win-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .win-btn {
+    width: 26px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(30, 41, 59, 0.85);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .win-btn:hover {
+    background: rgba(51, 65, 85, 0.95);
+    color: #ffffff;
+  }
+
+  .win-btn.close:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #ffffff;
+  }
+
+  .api-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: rgba(15, 23, 42, 0.65);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .api-bar input {
+    flex: 1;
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #f8fafc;
+    font-size: 11px;
+    outline: none;
+    user-select: text;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .api-bar input:focus {
+    border-color: #38bdf8;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .btn {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(30, 41, 59, 0.92);
+    color: #f8fafc;
+    padding: 6px 11px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .btn:hover {
+    background: rgba(51, 65, 85, 0.95);
+  }
+
+  .btn.primary {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #ffffff;
+  }
+
+  .btn.primary:hover {
+    background: #1d4ed8;
+  }
+
+  .btn.active {
+    background: #16a34a;
+    border-color: #22c55e;
+    color: #ffffff;
+  }
+
+  .btn.small {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .manual-row {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .manual-row input {
+    flex: 1;
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
+    padding: 6px 10px;
+    color: #f8fafc;
+    font-size: 12px;
+    outline: none;
+    user-select: text;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .manual-row input:focus {
+    border-color: #38bdf8;
+  }
+
+  .content {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    user-select: text;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
+  .heard-box {
+    background: rgba(30, 41, 59, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.4;
+  }
+
+  .heard-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #38bdf8;
+    margin-bottom: 3px;
+  }
+
+  .answer-box {
+    flex: 1;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #f1f5f9;
+    white-space: pre-wrap;
+    overflow-y: auto;
+  }
+
+  .footer {
+    padding: 7px 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #94a3b8;
+  }
+</style>
 </head>
 <body>
-  <div id="hud">
-    <div id="titlebar">
-      <div class="brand">
-        <span class="dot"></span>
-        <span>PitchPilot HUD</span>
-      </div>
-      <div class="controls">
-        <button class="ctrl-btn" id="fontDown" title="Decrease font">A-</button>
-        <button class="ctrl-btn" id="fontUp" title="Increase font">A+</button>
-        <button class="ctrl-btn" id="resizeBtn" title="Toggle compact/wide">Wide</button>
-        <button class="ctrl-btn" id="opacityBtn" title="Cycle opacity">◐ 92%</button>
-        <button class="ctrl-btn" id="scrollLockBtn" title="Pause auto-scroll">VS</button>
-        <button class="ctrl-btn" id="clearBtn" title="Clear screen">Clear</button>
-        <button class="ctrl-btn" id="hideBtn" title="Hide HUD (Ctrl+Shift+H)">—</button>
-        <button class="ctrl-btn" id="closeBtn" title="Quit PitchPilot HUD completely">✕</button>
-      </div>
+<div class="hud-shell" id="hudShell">
+  <div class="hud-header">
+    <div class="brand">
+      <span class="brand-dot" id="statusDot"></span>
+      <span>PitchPilot AI Copilot</span>
     </div>
-
-    <div id="inputRow">
-      <button id="listenBtn">🎤 Listen</button>
-      <input id="promptInput" type="text" placeholder="Live Teams audio or type question..." />
-      <button id="askBtn">Ask AI</button>
-    </div>
-
-    <div id="meterWrap"><div id="meterBar"></div></div>
-
-    <div id="content">
-      <div class="placeholder">
-        <strong>Stealth HUD Ready (Fast Mode).</strong><br /><br />
-        • Click <strong>🎤 Listen</strong> to capture Windows system audio directly.<br />
-        • Or type any question above and press <strong>Enter</strong>.<br />
-        • Click <strong>—</strong> to hide (<strong>Ctrl+Shift+H</strong>) or <strong>✕</strong> to quit completely.
-      </div>
-    </div>
-
-    <div id="footer">
-      <span id="statusText">Ready • Stealth Protected</span>
-      <span>Ctrl+Shift+H Hide • Ctrl+Alt+Arrows Move</span>
+    <div class="win-controls">
+      <button type="button" class="win-btn" id="opacityBtn" title="Toggle Opacity">◐</button>
+      <button type="button" class="win-btn" id="minBtn" title="Hide to Tray">—</button>
+      <button type="button" class="win-btn close" id="closeBtn" title="Quit App">✕</button>
     </div>
   </div>
 
-  <script>
-    const API_BASE = 'https://pitchpilot-ai-ruddy.vercel.app';
-    let fontSize = 13.5;
-    let opacities = [0.92, 0.72, 0.50, 0.98];
-    let opacityIdx = 0;
-    let isWide = false;
-    let autoScroll = true;
+  <div class="api-bar">
+    <input type="url" id="apiBaseInput" placeholder="Paste your deployment URL" />
+    <button type="button" class="btn small" id="saveApiBtn">Save URL</button>
+  </div>
 
-    // Persist auth token & context across restarts
-    let authToken = localStorage.getItem('pp_token') || null;
-    let resumeText = localStorage.getItem('pp_resume') || '';
-    let jobDescription = localStorage.getItem('pp_jd') || '';
+  <div class="toolbar">
+    <button type="button" class="btn primary" id="listenBtn">🎤 Listen</button>
+    <button type="button" class="btn" id="flushBtn" title="Send buffered question now">⚡ Ask Now</button>
+    <button type="button" class="btn" id="clearBtn">Clear</button>
+  </div>
 
-    // Fast 8kHz WAV PCM System Audio Capture State
-    let isListening = false;
-    let displayStream = null;
-    let audioCtx = null;
-    let processorNode = null;
-    let pcmChunks = [];
-    let pcmSampleCount = 0;
-    let captureTimer = null;
-    let accumulatedQuestion = '';
-    let silenceCount = 0;
+  <div class="manual-row">
+    <input type="text" id="questionInput" placeholder="Type or edit interview question and press Enter..." />
+    <button type="button" class="btn primary" id="askBtn">Ask AI</button>
+  </div>
 
-    // Filter <noise>, [music], (silence), and short filler sounds
-    const FILLER_REGEX = /^(<[^>]+>|\[[^\]]+\]|\([^\)]+\)|oh|ah|uh|um|hmm|yeah|yes|no|okay|ok|right|sure|thanks|thank you)\.?$/i;
-    const contentEl = document.getElementById('content');
-    const statusEl = document.getElementById('statusText');
-    const promptInput = document.getElementById('promptInput');
-    const meterBar = document.getElementById('meterBar');
+  <div class="content">
+    <div class="heard-box">
+      <div class="heard-label">Live Transcript</div>
+      <div id="heardText">Waiting for audio or typed question…</div>
+    </div>
+    <div class="answer-box" id="answerText">Click 🎤 Listen to capture system interview audio, or type a question above.</div>
+  </div>
 
-    function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+  <div class="footer">
+    <span id="statusText">Ready</span>
+    <span id="apiStatusText">No URL set</span>
+  </div>
+</div>
+
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const hudShell = document.getElementById("hudShell");
+  const statusDot = document.getElementById("statusDot");
+  const statusText = document.getElementById("statusText");
+  const apiStatusText = document.getElementById("apiStatusText");
+  const apiBaseInput = document.getElementById("apiBaseInput");
+  const saveApiBtn = document.getElementById("saveApiBtn");
+  const opacityBtn = document.getElementById("opacityBtn");
+  const minBtn = document.getElementById("minBtn");
+  const closeBtn = document.getElementById("closeBtn");
+  const listenBtn = document.getElementById("listenBtn");
+  const flushBtn = document.getElementById("flushBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const questionInput = document.getElementById("questionInput");
+  const askBtn = document.getElementById("askBtn");
+  const heardText = document.getElementById("heardText");
+  const answerText = document.getElementById("answerText");
+
+  const opacities = [0.94, 0.80, 0.64];
+  let opacityIndex = 0;
+
+  let sessionContext = {
+    apiBase: (localStorage.getItem("pitchpilot_api_base") || "").trim(),
+    token: localStorage.getItem("pitchpilot_token") || "",
+    resumeText: "",
+    jobDescription: ""
+  };
+
+  function normalizeUrl(raw) {
+    const trimmed = (raw || "").trim().replace(/\/+$/, "");
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return "https://" + trimmed;
+  }
+
+  function updateApiDisplay() {
+    if (sessionContext.apiBase) {
+      apiBaseInput.value = sessionContext.apiBase;
+      apiStatusText.textContent = sessionContext.apiBase.replace(/^https?:\/\//, "");
+    } else {
+      apiStatusText.textContent = "Set Vercel URL above";
+    }
+  }
+
+  updateApiDisplay();
+
+  function setStatus(msg, mode = "idle") {
+    statusText.textContent = msg;
+    statusDot.classList.remove("listening", "error");
+    if (mode === "listening") statusDot.classList.add("listening");
+    if (mode === "error") statusDot.classList.add("error");
+  }
+
+  // Sync context and the configured API URL from the local bridge.
+  if (window.stealthHUD && typeof window.stealthHUD.onPayload === "function") {
+    window.stealthHUD.onPayload((ctx) => {
+      if (!ctx) return;
+      if (ctx.apiBase) {
+        sessionContext.apiBase = normalizeUrl(ctx.apiBase);
+        localStorage.setItem("pitchpilot_api_base", sessionContext.apiBase);
+      }
+      if (ctx.token) {
+        sessionContext.token = ctx.token;
+        localStorage.setItem("pitchpilot_token", ctx.token);
+      }
+      if (ctx.resumeText !== undefined) sessionContext.resumeText = ctx.resumeText;
+      if (ctx.jobDescription !== undefined) sessionContext.jobDescription = ctx.jobDescription;
+      updateApiDisplay();
+    });
+  }
+
+  saveApiBtn.addEventListener("click", () => {
+    const clean = normalizeUrl(apiBaseInput.value);
+    sessionContext.apiBase = clean;
+    localStorage.setItem("pitchpilot_api_base", clean);
+    updateApiDisplay();
+    setStatus(clean ? "Backend URL saved" : "Cleared URL", "idle");
+  });
+
+  opacityBtn.addEventListener("click", () => {
+    opacityIndex = (opacityIndex + 1) % opacities.length;
+    hudShell.style.background = `rgba(15, 23, 42, ${opacities[opacityIndex]})`;
+  });
+
+  minBtn.addEventListener("click", () => {
+    if (window.stealthHUD && typeof window.stealthHUD.toggleVisibility === "function") {
+      window.stealthHUD.toggleVisibility();
+    } else {
+      window.blur();
+    }
+  });
+
+  closeBtn.addEventListener("click", () => {
+    stopListening();
+    if (window.stealthHUD && typeof window.stealthHUD.quitApp === "function") {
+      window.stealthHUD.quitApp();
+    } else {
+      window.close();
+    }
+  });
+
+  clearBtn.addEventListener("click", () => {
+    accumulatedSegments = [];
+    clearTimeout(stitchTimer);
+    heardText.textContent = "Waiting for audio or typed question…";
+    answerText.textContent = "Cleared.";
+    questionInput.value = "";
+    setStatus("Cleared", "idle");
+  });
+
+  // --- Audio Capture & Multi-Clause Question Stitching ---
+  let isListening = false;
+  let mediaStream = null;
+  let audioContext = null;
+  let scriptProcessor = null;
+  let pcmChunks = [];
+  let pcmSampleCount = 0;
+  let speechActive = false;
+  let speechStartTime = 0;
+  let lastSpeechTime = 0;
+  let noiseFloorRms = 0.002;
+
+  let accumulatedSegments = [];
+  let stitchTimer = null;
+  let activeAnswerController = null;
+  let transcriptionQueue = Promise.resolve();
+
+  const TARGET_SAMPLE_RATE = 12000;
+  const PAUSE_FLUSH_MS = 950;
+  const HARD_MAX_PHRASE_MS = 6500;
+  const MAX_PHRASE_SAMPLES = Math.floor(TARGET_SAMPLE_RATE * HARD_MAX_PHRASE_MS / 1000);
+  const MIN_SPEECH_MS = 350;
+
+  function looksIncompleteClause(text) {
+    const clean = text.trim().toLowerCase().replace(/[?!.,]+$/, "");
+    if (!clean) return false;
+    const words = clean.split(/\s+/);
+    if (words.length <= 4) return true;
+    const trailingConnectors = [
+      "and", "or", "but", "of", "to", "in", "for", "with", "between",
+      "about", "versus", "vs", "what", "how", "why", "when", "which",
+      "advantages", "disadvantages", "difference", "differences", "benefits"
+    ];
+    const lastWord = words[words.length - 1];
+    return trailingConnectors.includes(lastWord);
+  }
+
+  function joinSegments(segments) {
+    return segments
+      .map((seg, idx) => {
+        let s = seg.trim();
+        if (idx < segments.length - 1) {
+          s = s.replace(/[?]+$/g, "");
+        }
+        return s;
+      })
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function scheduleQuestionDispatch() {
+    clearTimeout(stitchTimer);
+    const combined = joinSegments(accumulatedSegments);
+    if (!combined) return;
+
+    const incomplete = looksIncompleteClause(combined);
+    const displayedQuestion = incomplete ? combined.replace(/\?+$/, "") : combined;
+    heardText.textContent = displayedQuestion;
+    questionInput.value = displayedQuestion;
+
+    const waitMs = incomplete ? 1650 : 650;
+    setStatus(`Stitching (${waitMs}ms)…`, "listening");
+
+    stitchTimer = setTimeout(() => {
+      const finalPrompt = joinSegments(accumulatedSegments);
+      accumulatedSegments = [];
+      if (finalPrompt) {
+        askCopilot(finalPrompt);
+      }
+    }, waitMs);
+  }
+
+  flushBtn.addEventListener("click", () => {
+    clearTimeout(stitchTimer);
+    if (speechActive && pcmSampleCount > 0) {
+      flushAudioBuffer("manual");
+    }
+    const finalPrompt = joinSegments(accumulatedSegments) || questionInput.value.trim();
+    accumulatedSegments = [];
+    if (finalPrompt) {
+      askCopilot(finalPrompt);
+    }
+  });
+
+  function downsampleTo12k(float32Array, inputSampleRate) {
+    if (inputSampleRate === TARGET_SAMPLE_RATE) return float32Array;
+    const ratio = inputSampleRate / TARGET_SAMPLE_RATE;
+    const newLength = Math.round(float32Array.length / ratio);
+    const result = new Float32Array(newLength);
+    let offsetResult = 0;
+    let offsetBuffer = 0;
+    while (offsetResult < result.length) {
+      const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+      let accum = 0;
+      let count = 0;
+      for (let i = offsetBuffer; i < nextOffsetBuffer && i < float32Array.length; i++) {
+        accum += float32Array[i];
+        count++;
+      }
+      result[offsetResult] = count > 0 ? accum / count : 0;
+      offsetResult++;
+      offsetBuffer = nextOffsetBuffer;
+    }
+    return result;
+  }
+
+  function encodeWav(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+
+    function writeString(offset, str) {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
     }
 
-    function renderAnswer(payload) {
-      const q = payload.question ? `<div class="question-tag">Q: ${escapeHtml(payload.question)}</div>` : '';
-      let html = q;
-      if (payload.overview || payload.answer) {
-        html += `<div class="section-title">Direct Answer</div><div>${escapeHtml(payload.overview || payload.answer)}</div>`;
-      }
-      if (payload.starStory) {
-        html += `<div class="section-title">STAR Example</div><div>${escapeHtml(payload.starStory)}</div>`;
-      }
-      if (Array.isArray(payload.bullets) && payload.bullets.length) {
-        html += `<div class="section-title">Key Talking Points</div><ul class="bullet-list">${payload.bullets
-          .map((b) => `<li>${escapeHtml(b)}</li>`)
-          .join('')}</ul>`;
-      }
-      if (payload.error) {
-        html += `<div style="color:#f87171;margin-top:8px;">Error: ${escapeHtml(payload.error)}</div>`;
-      }
-      contentEl.innerHTML = html || '<div class="placeholder">Waiting for response...</div>';
-      if (autoScroll) contentEl.scrollTop = 0;
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, samples.length * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([buffer], { type: "audio/wav" });
+  }
+
+  async function flushAudioBuffer(reason) {
+    if (pcmSampleCount === 0) return;
+    const totalSamples = pcmSampleCount;
+    const chunks = pcmChunks;
+    pcmChunks = [];
+    pcmSampleCount = 0;
+    speechActive = false;
+
+    const durationMs = (totalSamples / TARGET_SAMPLE_RATE) * 1000;
+    if (durationMs < MIN_SPEECH_MS) return;
+
+    const merged = new Float32Array(totalSamples);
+    let offset = 0;
+    for (const c of chunks) {
+      merged.set(c, offset);
+      offset += c.length;
     }
 
-    if (window.stealthHUD) {
-      window.stealthHUD.onPayload((data) => {
-        if (data.token) {
-          authToken = data.token;
-          localStorage.setItem('pp_token', authToken);
-          statusEl.textContent = 'Account token synced';
-        }
-        if (data.resumeText) {
-          resumeText = data.resumeText;
-          localStorage.setItem('pp_resume', resumeText);
-        }
-        if (data.jobDescription) {
-          jobDescription = data.jobDescription;
-          localStorage.setItem('pp_jd', jobDescription);
-        }
-        if (data.question || data.answer || data.overview || data.bullets || data.error) {
-          renderAnswer(data);
-          statusEl.textContent = 'Live answer updated';
-        }
-      });
+    const wavBlob = encodeWav(merged, TARGET_SAMPLE_RATE);
+    await transcribeChunk(wavBlob, reason);
+  }
+
+  async function transcribeChunk(wavBlob) {
+    const apiBase = normalizeUrl(sessionContext.apiBase || apiBaseInput.value);
+    if (!apiBase) {
+      setStatus("Enter your Vercel URL at top first", "error");
+      return;
     }
-
-    async function askCopilot(questionText) {
-      const q = (questionText || promptInput.value || '').trim();
-      if (!q || FILLER_REGEX.test(q)) return;
-
-      statusEl.textContent = 'Generating fast AI response…';
-      contentEl.innerHTML = `<div class="question-tag">Q: ${escapeHtml(q)}</div><div class="placeholder">Thinking…</div>`;
+    transcriptionQueue = transcriptionQueue.then(async () => {
+      const t0 = performance.now();
+      const kb = Math.max(1, Math.round(wavBlob.size / 1024));
+      setStatus(`Transcribing (${kb} KB)…`, "listening");
 
       try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+        const formData = new FormData();
+        formData.append("audio", wavBlob, "speech.wav");
 
-        const res = await fetch(`${API_BASE}/api/copilot/answer`, {
-          method: 'POST',
+        const headers = {};
+        if (sessionContext.token) {
+          headers["Authorization"] = `Bearer ${sessionContext.token}`;
+        }
+
+        const res = await fetch(`${apiBase}/api/copilot/transcribe`, {
+          method: "POST",
           headers,
-          body: JSON.stringify({ question: q, resumeText, jobDescription }),
+          body: formData
         });
+
+        if (!res.ok) {
+          throw new Error(`Transcribe HTTP ${res.status}`);
+        }
 
         const data = await res.json();
-        if (!res.ok) {
-          const errMsg = data.error || `Server error (${res.status})`;
-          renderAnswer({ question: q, error: errMsg });
-          statusEl.textContent = res.status === 401
-            ? 'Token expired — click Start Live Copilot in Chrome'
-            : `Answer error (${res.status})`;
-          return;
+        const transcript = (data.text || data.transcript || "").trim();
+        const elapsed = Math.round(performance.now() - t0);
+
+        if (transcript && transcript.length > 1) {
+          accumulatedSegments.push(
+            looksIncompleteClause(transcript) ? transcript.replace(/\?+$/, "") : transcript
+          );
+          setStatus(`Heard (${elapsed}ms)`, "listening");
+          scheduleQuestionDispatch();
+        } else {
+          setStatus("Listening…", "listening");
         }
-        renderAnswer({ question: q, ...data });
-        statusEl.textContent = 'Answer ready';
       } catch (err) {
-        renderAnswer({ question: q, error: err.message });
-        statusEl.textContent = 'Network error';
+        setStatus(`Transcribe error: ${err.message}`, "error");
       }
+    });
+    await transcriptionQueue;
+  }
+
+  function appendAudioSamples(samples) {
+    const remaining = MAX_PHRASE_SAMPLES - pcmSampleCount;
+    if (remaining <= 0) {
+      flushAudioBuffer("max-cap");
+      return;
     }
 
-    // Downsample Float32 PCM to 8kHz Mono WAV Blob (~32 KB per 2s chunk for ultra-fast upload)
-    function encodeWav8k(float32Buffers, totalSamples, inputSampleRate) {
-      const targetRate = 8000;
-      const ratio = inputSampleRate / targetRate;
-      const outLength = Math.floor(totalSamples / ratio);
-      const pcm16 = new Int16Array(outLength);
+    const acceptedSamples = samples.subarray(0, remaining);
+    if (acceptedSamples.length > 0) {
+      pcmChunks.push(acceptedSamples);
+      pcmSampleCount += acceptedSamples.length;
+    }
+    if (pcmSampleCount >= MAX_PHRASE_SAMPLES) {
+      flushAudioBuffer("max-cap");
+    }
+  }
 
-      let srcIdx = 0;
-      let bufIdx = 0;
+  async function startListening() {
+    const apiBase = normalizeUrl(sessionContext.apiBase || apiBaseInput.value);
+    if (!apiBase) {
+      setStatus("Paste your Vercel URL & click Save first", "error");
+      apiBaseInput.focus();
+      return;
+    }
 
-      for (let i = 0; i < outLength; i++) {
-        const targetPos = Math.floor(i * ratio);
-        while (bufIdx < float32Buffers.length && srcIdx + float32Buffers[bufIdx].length <= targetPos) {
-          srcIdx += float32Buffers[bufIdx].length;
-          bufIdx++;
+    try {
+      setStatus("Requesting system audio…", "listening");
+      mediaStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
         }
-        if (bufIdx < float32Buffers.length) {
-          const offsetInBuf = targetPos - srcIdx;
-          const s = Math.max(-1, Math.min(1, float32Buffers[bufIdx][offsetInBuf]));
-          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
+      });
+
+      const audioTracks = mediaStream.getAudioTracks();
+      if (!audioTracks || audioTracks.length === 0) {
+        throw new Error("No system audio track shared");
       }
 
-      const wavBuffer = new ArrayBuffer(44 + pcm16.byteLength);
-      const view = new DataView(wavBuffer);
-      const writeStr = (off, str) => {
-        for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+      // Stop unnecessary video track immediately to save CPU
+      mediaStream.getVideoTracks().forEach((t) => t.stop());
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaStreamSource(new MediaStream(audioTracks));
+      scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+      scriptProcessor.onaudioprocess = (event) => {
+        if (!isListening) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const downsampled = downsampleTo12k(input, audioContext.sampleRate);
+
+        let sumSq = 0;
+        for (let i = 0; i < downsampled.length; i++) {
+          sumSq += downsampled[i] * downsampled[i];
+        }
+        const rms = Math.sqrt(sumSq / downsampled.length);
+        const now = Date.now();
+
+        if (speechActive && now - speechStartTime >= HARD_MAX_PHRASE_MS) {
+          flushAudioBuffer("max-cap");
+        }
+
+        if (!speechActive) {
+          noiseFloorRms = noiseFloorRms * 0.95 + rms * 0.05;
+        }
+        const threshold = Math.max(0.0032, noiseFloorRms * 2.1);
+
+        if (rms > threshold) {
+          if (!speechActive) {
+            speechActive = true;
+            speechStartTime = now;
+            setStatus("Speech detected…", "listening");
+          }
+          lastSpeechTime = now;
+          appendAudioSamples(downsampled);
+        } else if (speechActive) {
+          appendAudioSamples(downsampled);
+          if (now - lastSpeechTime >= PAUSE_FLUSH_MS) {
+            flushAudioBuffer("pause");
+          }
+        }
       };
 
-      writeStr(0, 'RIFF');
-      view.setUint32(4, 36 + pcm16.byteLength, true);
-      writeStr(8, 'WAVE');
-      writeStr(12, 'fmt ');
-      view.setUint32(16, 16, true);
-      view.setUint16(20, 1, true);
-      view.setUint16(22, 1, true);
-      view.setUint32(24, targetRate, true);
-      view.setUint32(28, targetRate * 2, true);
-      view.setUint16(32, 2, true);
-      view.setUint16(34, 16, true);
-      writeStr(36, 'data');
-      view.setUint32(40, pcm16.byteLength, true);
+      source.connect(scriptProcessor);
+      scriptProcessor.connect(audioContext.destination);
 
-      new Uint8Array(wavBuffer, 44).set(new Uint8Array(pcm16.buffer));
-      return new Blob([wavBuffer], { type: 'audio/wav' });
+      isListening = true;
+      listenBtn.textContent = "⏹ Stop";
+      listenBtn.classList.remove("primary");
+      listenBtn.classList.add("active");
+      setStatus("Listening to system audio…", "listening");
+    } catch (err) {
+      stopListening();
+      setStatus(`Audio error: ${err.message}`, "error");
+    }
+  }
+
+  function stopListening() {
+    isListening = false;
+    speechActive = false;
+    pcmChunks = [];
+    pcmSampleCount = 0;
+    if (scriptProcessor) {
+      try { scriptProcessor.disconnect(); } catch (e) {}
+      scriptProcessor = null;
+    }
+    if (audioContext) {
+      try { audioContext.close(); } catch (e) {}
+      audioContext = null;
+    }
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    listenBtn.textContent = "🎤 Listen";
+    listenBtn.classList.remove("active");
+    listenBtn.classList.add("primary");
+    setStatus("Stopped", "idle");
+  }
+
+  listenBtn.addEventListener("click", () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  });
+
+  async function askCopilot(question) {
+    const cleanQ = (question || "").trim();
+    if (!cleanQ) return;
+
+    const apiBase = normalizeUrl(sessionContext.apiBase || apiBaseInput.value);
+    if (!apiBase) {
+      setStatus("Paste your Vercel URL & click Save first", "error");
+      apiBaseInput.focus();
+      return;
     }
 
-    async function flushAndTranscribe() {
-      if (!isListening || pcmSampleCount === 0) return;
-
-      const buffers = pcmChunks;
-      const samples = pcmSampleCount;
-      const sampleRate = audioCtx ? audioCtx.sampleRate : 48000;
-      pcmChunks = [];
-      pcmSampleCount = 0;
-
-      let sumSq = 0;
-      let count = 0;
-      for (const b of buffers) {
-        for (let i = 0; i < b.length; i += 10) {
-          sumSq += b[i] * b[i];
-          count++;
-        }
-      }
-      const rms = count ? Math.sqrt(sumSq / count) : 0;
-      if (rms < 0.0025) {
-        silenceCount++;
-        statusEl.textContent = 'Listening (silence)…';
-        if (accumulatedQuestion && silenceCount >= 1) {
-          const finalQ = accumulatedQuestion;
-          accumulatedQuestion = '';
-          silenceCount = 0;
-          askCopilot(finalQ);
-        }
-        return;
-      }
-
-      const wavBlob = encodeWav8k(buffers, samples, sampleRate);
-      const kb = Math.max(1, Math.round(wavBlob.size / 1024));
-      statusEl.textContent = `Transcribing (${kb} KB)…`;
-
-      const formData = new FormData();
-      formData.append('audio', wavBlob, 'speech.wav');
-
-      const headers = {};
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
-      try {
-        const res = await fetch(`${API_BASE}/api/copilot/transcribe`, {
-          method: 'POST',
-          headers,
-          body: formData,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          statusEl.textContent = `Transcribe error: ${data.error || res.status}`;
-          return;
-        }
-
-        const rawText = (data.text || '').replace(/<[^>]+>|\[[^\]]+\]/g, '').trim();
-        statusEl.textContent = rawText ? `Heard: "${rawText}"` : 'Listening…';
-
-        if (rawText && rawText.length >= 2 && !FILLER_REGEX.test(rawText)) {
-          silenceCount = 0;
-          accumulatedQuestion = (accumulatedQuestion + ' ' + rawText).trim();
-          promptInput.value = accumulatedQuestion;
-
-          const wordCount = accumulatedQuestion.split(/\s+/).length;
-          if (accumulatedQuestion.endsWith('?') || wordCount >= 9) {
-            const finalQ = accumulatedQuestion;
-            accumulatedQuestion = '';
-            silenceCount = 0;
-            askCopilot(finalQ);
-          }
-        } else {
-          silenceCount++;
-          if (accumulatedQuestion && silenceCount >= 1) {
-            const finalQ = accumulatedQuestion;
-            accumulatedQuestion = '';
-            silenceCount = 0;
-            askCopilot(finalQ);
-          }
-        }
-      } catch (err) {
-        statusEl.textContent = `Network error: ${err.message}`;
-      }
+    if (activeAnswerController) {
+      activeAnswerController.abort();
     }
+    activeAnswerController = new AbortController();
 
-    function stopSystemAudio() {
-      isListening = false;
-      if (captureTimer) {
-        clearInterval(captureTimer);
-        captureTimer = null;
-      }
-      meterBar.style.width = '0%';
-      if (processorNode) {
-        processorNode.disconnect();
-        processorNode = null;
-      }
-      if (audioCtx) {
-        audioCtx.close().catch(() => {});
-        audioCtx = null;
-      }
-      if (displayStream) {
-        displayStream.getTracks().forEach((t) => t.stop());
-        displayStream = null;
-      }
-      pcmChunks = [];
-      pcmSampleCount = 0;
-    }
+    heardText.textContent = cleanQ;
+    answerText.textContent = "Generating answer…";
+    const t0 = performance.now();
+    setStatus("Thinking…", "listening");
 
-    document.getElementById('listenBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('listenBtn');
-      if (isListening) {
-        stopSystemAudio();
-        btn.textContent = '🎤 Listen';
-        btn.classList.remove('listening');
-        statusEl.textContent = 'Paused.';
-        return;
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (sessionContext.token) {
+        headers["Authorization"] = `Bearer ${sessionContext.token}`;
       }
 
-      try {
-        statusEl.textContent = 'Connecting system audio…';
-        displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true,
-        });
+      const res = await fetch(`${apiBase}/api/copilot/answer`, {
+        method: "POST",
+        headers,
+        signal: activeAnswerController.signal,
+        body: JSON.stringify({
+          question: cleanQ,
+          resumeText: sessionContext.resumeText || "",
+          jobDescription: sessionContext.jobDescription || "",
+          stream: true
+        })
+      });
 
-        displayStream.getVideoTracks().forEach((t) => t.stop());
-        const audioTracks = displayStream.getAudioTracks();
-        if (!audioTracks.length) {
-          throw new Error('No system audio track found.');
-        }
+      if (!res.ok) {
+        throw new Error(`Answer HTTP ${res.status}`);
+      }
 
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        await audioCtx.resume();
-        const source = audioCtx.createMediaStreamSource(new MediaStream(audioTracks));
-        processorNode = audioCtx.createScriptProcessor(4096, 1, 1);
+      const contentType = res.headers.get("content-type") || "";
+      if (res.body && !contentType.includes("application/json")) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
+        let firstChunkMs = 0;
 
-        processorNode.onaudioprocess = (e) => {
-          if (!isListening) return;
-          const input = e.inputBuffer.getChannelData(0);
-          const copy = new Float32Array(input.length);
-          let peak = 0;
-          for (let i = 0; i < input.length; i++) {
-            copy[i] = input[i];
-            const abs = Math.abs(input[i]);
-            if (abs > peak) peak = abs;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (!firstChunkMs) {
+            firstChunkMs = Math.round(performance.now() - t0);
+            setStatus(`Streaming (${firstChunkMs}ms)…`, isListening ? "listening" : "idle");
           }
-          pcmChunks.push(copy);
-          pcmSampleCount += copy.length;
-          meterBar.style.width = `${Math.min(100, Math.round(peak * 350))}%`;
-        };
-
-        source.connect(processorNode);
-        processorNode.connect(audioCtx.destination);
-
-        isListening = true;
-        accumulatedQuestion = '';
-        silenceCount = 0;
-        btn.textContent = '⏹ Stop';
-        btn.classList.add('listening');
-        statusEl.textContent = 'Listening to Teams audio…';
-
-        captureTimer = setInterval(flushAndTranscribe, 2000);
-      } catch (err) {
-        stopSystemAudio();
-        statusEl.textContent = `System audio error: ${err.message}`;
-      }
-    });
-
-    document.getElementById('askBtn').addEventListener('click', () => askCopilot());
-    promptInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') askCopilot();
-    });
-
-    document.getElementById('fontUp').addEventListener('click', () => {
-      fontSize = Math.min(20, fontSize + 1);
-      document.documentElement.style.setProperty('--font-size', `${fontSize}px`);
-    });
-    document.getElementById('fontDown').addEventListener('click', () => {
-      fontSize = Math.max(11, fontSize - 1);
-      document.documentElement.style.setProperty('--font-size', `${fontSize}px`);
-    });
-    document.getElementById('opacityBtn').addEventListener('click', (e) => {
-      opacityIdx = (opacityIdx + 1) % opacities.length;
-      const val = opacities[opacityIdx];
-      document.documentElement.style.setProperty('--bg-opacity', val);
-      e.target.textContent = `◐ ${Math.round(val * 100)}%`;
-    });
-    document.getElementById('resizeBtn').addEventListener('click', (e) => {
-      isWide = !isWide;
-      e.target.textContent = isWide ? 'Compact' : 'Wide';
-      if (window.stealthHUD) {
-        window.stealthHUD.resizeHUD(isWide ? 620 : 440, isWide ? 420 : 320);
-      }
-    });
-    document.getElementById('scrollLockBtn').addEventListener('click', (e) => {
-      autoScroll = !autoScroll;
-      e.target.classList.toggle('active', !autoScroll);
-      e.target.textContent = autoScroll ? 'VS' : 'Paused';
-    });
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      accumulatedQuestion = '';
-      promptInput.value = '';
-      contentEl.innerHTML = '<div class="placeholder">Screen cleared. Ready for next question.</div>';
-      statusEl.textContent = 'Cleared';
-    });
-    document.getElementById('hideBtn').addEventListener('click', () => {
-      if (window.stealthHUD) window.stealthHUD.toggleVisibility();
-    });
-    document.getElementById('closeBtn').addEventListener('click', () => {
-      stopSystemAudio();
-      if (window.stealthHUD && window.stealthHUD.quitApp) {
-        window.stealthHUD.quitApp();
+          fullText += decoder.decode(value, { stream: true });
+          answerText.textContent = fullText;
+        }
+        fullText += decoder.decode();
+        answerText.textContent = fullText;
+        const elapsed = Math.round(performance.now() - t0);
+        setStatus(isListening ? "Listening…" : `Done (${elapsed}ms)`, isListening ? "listening" : "idle");
       } else {
-        window.close();
+        const data = await res.json();
+        const totalMs = Math.round(performance.now() - t0);
+        const sections = [
+          data.overview,
+          data.starStory ? `### STAR Example\n${data.starStory}` : "",
+          Array.isArray(data.bullets) && data.bullets.length
+            ? `### Key Talking Points\n${data.bullets.map((bullet) => `- ${bullet}`).join("\n")}`
+            : ""
+        ].filter(Boolean);
+        answerText.textContent = data.answer || data.text || sections.join("\n\n") || JSON.stringify(data, null, 2);
+        setStatus(isListening ? "Listening…" : `Done (${totalMs}ms)`, isListening ? "listening" : "idle");
       }
-    });
-  </script>
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      answerText.textContent = `Error: ${err.message}`;
+      setStatus(`Error: ${err.message}`, "error");
+    }
+  }
+
+  askBtn.addEventListener("click", () => {
+    clearTimeout(stitchTimer);
+    accumulatedSegments = [];
+    askCopilot(questionInput.value);
+  });
+
+  questionInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      clearTimeout(stitchTimer);
+      accumulatedSegments = [];
+      askCopilot(questionInput.value);
+    }
+  });
+});
+</script>
 </body>
 </html>

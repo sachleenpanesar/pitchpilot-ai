@@ -29,6 +29,7 @@ function createOverlayWindow() {
       backgroundThrottling: false,
     },
   });
+  overlayWindow.setIgnoreMouseEvents(false);
 
   // Hide from screen capture / screen sharing (Windows WDA_EXCLUDEFROMCAPTURE)
   overlayWindow.setContentProtection(true);
