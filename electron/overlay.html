@@ -128,6 +128,19 @@
     font-size: calc(10px * var(--hud-font-scale, 1));
   }
 
+  .model-select {
+    width: 96px;
+    min-width: 0;
+    padding: 4px 5px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.95);
+    color: #e2e8f0;
+    font-size: calc(10px * var(--hud-font-scale, 1));
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
+  }
+
   .win-btn:hover {
     background: rgba(51, 65, 85, 0.95);
     color: #ffffff;
@@ -310,6 +323,22 @@
       <span>PitchPilot AI</span>
       <span class="sync-badge" id="cvSyncedBadge" hidden>CV Synced</span>
     </div>
+    <select id="modelSelect" class="model-select" title="Choose an AI model">
+      <optgroup label="Gemini">
+        <option value="gemini-3.5-flash-lite">Fastest - Default</option>
+        <option value="gemini-3.8-flash">Balanced</option>
+        <option value="gemini-4-carbon">Deep Technical</option>
+      </optgroup>
+      <optgroup label="Groq (Ultra-Fast)">
+        <option value="groq:llama-3.1-8b-instant">Instant</option>
+        <option value="groq:llama-3.3-70b-versatile">70B Smart</option>
+      </optgroup>
+      <optgroup label="OpenAI">
+        <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
+        <option value="openai:gpt-4o">GPT-4o</option>
+      </optgroup>
+      <optgroup id="ollamaModelsGroup" label="Local Ollama"></optgroup>
+    </select>
     <div class="win-controls">
       <button type="button" class="win-btn view" id="sizeBtn" title="Switch between compact and wide HUD">Wide</button>
       <button type="button" class="win-btn" id="fontDownBtn" title="Decrease font size">A-</button>
@@ -369,6 +398,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const heardText = document.getElementById("heardText");
   const answerText = document.getElementById("answerText");
   const cvSyncedBadge = document.getElementById("cvSyncedBadge");
+  const modelSelect = document.getElementById("modelSelect");
+  const ollamaModelsGroup = document.getElementById("ollamaModelsGroup");
   const sizeBtn = document.getElementById("sizeBtn");
   const fontDownBtn = document.getElementById("fontDownBtn");
   const fontUpBtn = document.getElementById("fontUpBtn");
@@ -376,6 +407,60 @@ window.addEventListener("DOMContentLoaded", () => {
   const opacities = [0.94, 0.80, 0.64];
   let opacityIndex = 0;
   const DEFAULT_API_BASE = "https://vercel.app";
+  const DEFAULT_MODEL = "gemini-3.5-flash-lite";
+  const savedModel = localStorage.getItem("pitchpilot_model") || DEFAULT_MODEL;
+  const savedOllamaModel = savedModel.startsWith("ollama:") ? savedModel : "";
+  let selectedModel = savedModel;
+  if (!Array.from(modelSelect.options).some((option) => option.value === selectedModel)) {
+    selectedModel = DEFAULT_MODEL;
+  }
+  modelSelect.value = selectedModel;
+  let modelSelectionChanged = false;
+
+  modelSelect.addEventListener("change", () => {
+    modelSelectionChanged = true;
+    selectedModel = modelSelect.value || DEFAULT_MODEL;
+    localStorage.setItem("pitchpilot_model", selectedModel);
+  });
+
+  async function detectOllamaModels() {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 1000);
+    const availableModels = [];
+
+    try {
+      const response = await fetch("http://127.0.0.1:11434/api/tags", {
+        signal: controller.signal,
+      });
+      if (response.ok) {
+        const data = await response.json();
+        for (const model of Array.isArray(data.models) ? data.models : []) {
+          if (typeof model.name !== "string" || !model.name) continue;
+          const value = `ollama:${model.name}`;
+          if (availableModels.includes(value)) continue;
+          availableModels.push(value);
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = model.name;
+          ollamaModelsGroup.appendChild(option);
+        }
+      }
+    } catch {
+      // Local Ollama is optional.
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    if (!modelSelectionChanged && savedOllamaModel) {
+      selectedModel = availableModels.includes(savedOllamaModel)
+        ? savedOllamaModel
+        : DEFAULT_MODEL;
+    }
+    modelSelect.value = selectedModel;
+    localStorage.setItem("pitchpilot_model", selectedModel);
+  }
+
+  void detectOllamaModels();
 
   let sessionContext = {
     apiBase: (localStorage.getItem("pitchpilot_api_base") || DEFAULT_API_BASE).trim(),
@@ -926,8 +1011,10 @@ window.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const model = selectedModel || DEFAULT_MODEL;
+    const isLocalModel = model.startsWith("ollama:");
     const apiBase = normalizeUrl(sessionContext.apiBase || apiBaseInput.value);
-    if (!apiBase) {
+    if (!isLocalModel && !apiBase) {
       setStatus("Paste your Vercel URL & click Save first", "error");
       apiBaseInput.focus();
       return;
@@ -945,24 +1032,50 @@ window.addEventListener("DOMContentLoaded", () => {
 
     try {
       const headers = { "Content-Type": "application/json" };
-      if (sessionContext.token) {
+      if (!isLocalModel && sessionContext.token) {
         headers["Authorization"] = `Bearer ${sessionContext.token}`;
       }
 
-      const res = await fetch(`${apiBase}/api/copilot/answer`, {
-        method: "POST",
-        headers,
-        signal: activeAnswerController.signal,
-        body: JSON.stringify({
-          question: cleanQ,
-          resumeText: sessionContext.resumeText || "",
-          jobDescription: sessionContext.jobDescription || "",
-          stream: true
-        })
-      });
+      const localPrompt = `You are a real-time interview copilot. Give a fast, natural, concise spoken answer.
+Question: ${cleanQ}
+${sessionContext.resumeText ? `Candidate Resume: ${sessionContext.resumeText.slice(0, 1400)}` : ""}
+${sessionContext.jobDescription ? `Target Role: ${sessionContext.jobDescription.slice(0, 900)}` : ""}
+
+Use these headings where appropriate:
+### Direct Answer
+2 crisp sentences.
+### STAR Example
+One concise example from the candidate's background for behavioral questions.
+### Key Talking Points
+- Up to 3 short points`;
+
+      const res = await fetch(
+        isLocalModel
+          ? "http://127.0.0.1:11434/v1/chat/completions"
+          : `${apiBase}/api/copilot/answer`,
+        {
+          method: "POST",
+          headers,
+          signal: activeAnswerController.signal,
+          body: JSON.stringify(isLocalModel
+            ? {
+                model: model.slice("ollama:".length),
+                messages: [{ role: "user", content: localPrompt }],
+                stream: true,
+              }
+            : {
+                question: cleanQ,
+                resumeText: sessionContext.resumeText || "",
+                jobDescription: sessionContext.jobDescription || "",
+                model,
+                stream: true,
+              }),
+        }
+      );
 
       if (!res.ok) {
-        throw new Error(`Answer HTTP ${res.status}`);
+        const errorBody = await res.json().catch(() => null);
+        throw new Error(errorBody?.error || `Answer HTTP ${res.status}`);
       }
 
       const contentType = res.headers.get("content-type") || "";
@@ -971,6 +1084,18 @@ window.addEventListener("DOMContentLoaded", () => {
         const decoder = new TextDecoder();
         let fullText = "";
         let firstChunkMs = 0;
+        const isLocalSse = isLocalModel && contentType.includes("text/event-stream");
+        let sseBuffer = "";
+
+        function consumeOllamaLine(line) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) return;
+          const payload = trimmed.slice(5).trim();
+          if (!payload || payload === "[DONE]") return;
+          const chunk = JSON.parse(payload);
+          const text = chunk.choices?.[0]?.delta?.content;
+          if (typeof text === "string" && text) fullText += text;
+        }
 
         while (true) {
           const { value, done } = await reader.read();
@@ -979,10 +1104,27 @@ window.addEventListener("DOMContentLoaded", () => {
             firstChunkMs = Math.round(performance.now() - t0);
             setStatus(`Streaming (${firstChunkMs}ms)…`, isListening ? "listening" : "idle");
           }
-          fullText += decoder.decode(value, { stream: true });
+          const decoded = decoder.decode(value, { stream: true });
+          if (isLocalSse) {
+            sseBuffer += decoded;
+            let newlineIndex = sseBuffer.indexOf("\n");
+            while (newlineIndex !== -1) {
+              consumeOllamaLine(sseBuffer.slice(0, newlineIndex).replace(/\r$/, ""));
+              sseBuffer = sseBuffer.slice(newlineIndex + 1);
+              newlineIndex = sseBuffer.indexOf("\n");
+            }
+          } else {
+            fullText += decoded;
+          }
           answerText.textContent = fullText;
         }
-        fullText += decoder.decode();
+        const remaining = decoder.decode();
+        if (isLocalSse) {
+          sseBuffer += remaining;
+          if (sseBuffer) consumeOllamaLine(sseBuffer);
+        } else {
+          fullText += remaining;
+        }
         answerText.textContent = fullText;
         const elapsed = Math.round(performance.now() - t0);
         setStatus(isListening ? "Listening…" : `Done (${elapsed}ms)`, isListening ? "listening" : "idle");
