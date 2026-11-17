@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Download, EyeOff, Shield, Zap } from "lucide-react";
 
 const RELEASE_DOWNLOAD_URL =
-  "https://github.com";
+  "https://github.com/sachleenpanesar/pitchpilot-ai/releases/tag/v0.1.0";
 
 export default function StealthHudCard() {
   const [hudOnline, setHudOnline] = useState(false);
