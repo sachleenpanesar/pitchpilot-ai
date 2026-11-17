@@ -112,6 +112,11 @@ function registerShortcuts() {
     toggleOverlayVisibility();
   });
 
+  globalShortcut.register('CommandOrControl+Shift+L', () => {
+    if (!overlayWindow || overlayWindow.isDestroyed()) return;
+    overlayWindow.webContents.send('hud-toggle-listening');
+  });
+
   const step = 30;
   globalShortcut.register('CommandOrControl+Alt+Up', () => {
     if (!overlayWindow) return;

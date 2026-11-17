@@ -44,7 +44,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
+    padding: 8px 9px;
     border-bottom: 1px solid rgba(148, 163, 184, 0.16);
     -webkit-app-region: drag;
     cursor: move;
@@ -55,7 +55,7 @@
     align-items: center;
     gap: 8px;
     font-weight: 700;
-    font-size: 13px;
+    font-size: calc(12px * var(--hud-font-scale, 1));
     letter-spacing: 0.2px;
     color: #f8fafc;
   }
@@ -78,22 +78,39 @@
     box-shadow: 0 0 10px #ef4444;
   }
 
+  .sync-badge {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    border-radius: 999px;
+    padding: 2px 6px;
+    background: rgba(22, 163, 74, 0.16);
+    color: #86efac;
+    font-size: calc(9px * var(--hud-font-scale, 1));
+    white-space: nowrap;
+  }
+
+  .sync-badge[hidden] {
+    display: none;
+  }
+
   .win-controls {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
+    flex-shrink: 0;
     -webkit-app-region: no-drag;
     pointer-events: auto;
   }
 
   .win-btn {
-    width: 26px;
+    width: 24px;
     height: 24px;
     border-radius: 6px;
     border: 1px solid rgba(148, 163, 184, 0.22);
     background: rgba(30, 41, 59, 0.85);
     color: #e2e8f0;
-    font-size: 12px;
+    font-size: calc(12px * var(--hud-font-scale, 1));
     font-weight: 600;
     cursor: pointer;
     display: inline-flex;
@@ -102,6 +119,13 @@
     transition: background 0.15s ease, color 0.15s ease;
     -webkit-app-region: no-drag;
     pointer-events: auto;
+  }
+
+  .win-btn.view {
+    width: auto;
+    min-width: 48px;
+    padding: 0 5px;
+    font-size: calc(10px * var(--hud-font-scale, 1));
   }
 
   .win-btn:hover {
@@ -133,7 +157,7 @@
     border-radius: 6px;
     padding: 5px 8px;
     color: #f8fafc;
-    font-size: 11px;
+    font-size: calc(11px * var(--hud-font-scale, 1));
     outline: none;
     user-select: text;
     -webkit-app-region: no-drag;
@@ -160,7 +184,7 @@
     color: #f8fafc;
     padding: 6px 11px;
     border-radius: 8px;
-    font-size: 12px;
+    font-size: calc(12px * var(--hud-font-scale, 1));
     font-weight: 600;
     cursor: pointer;
     display: inline-flex;
@@ -193,7 +217,7 @@
 
   .btn.small {
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: calc(11px * var(--hud-font-scale, 1));
   }
 
   .manual-row {
@@ -212,7 +236,7 @@
     border-radius: 8px;
     padding: 6px 10px;
     color: #f8fafc;
-    font-size: 12px;
+    font-size: calc(12px * var(--hud-font-scale, 1));
     outline: none;
     user-select: text;
     -webkit-app-region: no-drag;
@@ -240,13 +264,13 @@
     border: 1px solid rgba(148, 163, 184, 0.18);
     border-radius: 8px;
     padding: 8px 10px;
-    font-size: 12px;
+    font-size: calc(12px * var(--hud-font-scale, 1));
     color: #cbd5e1;
     line-height: 1.4;
   }
 
   .heard-label {
-    font-size: 10px;
+    font-size: calc(10px * var(--hud-font-scale, 1));
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.6px;
@@ -260,7 +284,7 @@
     border: 1px solid rgba(148, 163, 184, 0.16);
     border-radius: 10px;
     padding: 11px 12px;
-    font-size: 13px;
+    font-size: calc(13px * var(--hud-font-scale, 1));
     line-height: 1.55;
     color: #f1f5f9;
     white-space: pre-wrap;
@@ -273,7 +297,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 11px;
+    font-size: calc(11px * var(--hud-font-scale, 1));
     color: #94a3b8;
   }
 </style>
@@ -283,9 +307,13 @@
   <div class="hud-header">
     <div class="brand">
       <span class="brand-dot" id="statusDot"></span>
-      <span>PitchPilot AI Copilot</span>
+      <span>PitchPilot AI</span>
+      <span class="sync-badge" id="cvSyncedBadge" hidden>CV Synced</span>
     </div>
     <div class="win-controls">
+      <button type="button" class="win-btn view" id="sizeBtn" title="Switch between compact and wide HUD">Wide</button>
+      <button type="button" class="win-btn" id="fontDownBtn" title="Decrease font size">A-</button>
+      <button type="button" class="win-btn" id="fontUpBtn" title="Increase font size">A+</button>
       <button type="button" class="win-btn" id="opacityBtn" title="Toggle Opacity">◐</button>
       <button type="button" class="win-btn" id="minBtn" title="Hide to Tray">—</button>
       <button type="button" class="win-btn close" id="closeBtn" title="Quit App">✕</button>
@@ -340,6 +368,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const askBtn = document.getElementById("askBtn");
   const heardText = document.getElementById("heardText");
   const answerText = document.getElementById("answerText");
+  const cvSyncedBadge = document.getElementById("cvSyncedBadge");
+  const sizeBtn = document.getElementById("sizeBtn");
+  const fontDownBtn = document.getElementById("fontDownBtn");
+  const fontUpBtn = document.getElementById("fontUpBtn");
 
   const opacities = [0.94, 0.80, 0.64];
   let opacityIndex = 0;
@@ -348,9 +380,10 @@ window.addEventListener("DOMContentLoaded", () => {
   let sessionContext = {
     apiBase: (localStorage.getItem("pitchpilot_api_base") || DEFAULT_API_BASE).trim(),
     token: localStorage.getItem("pitchpilot_token") || "",
-    resumeText: "",
-    jobDescription: ""
+    resumeText: localStorage.getItem("pitchpilot_resume_text") || "",
+    jobDescription: localStorage.getItem("pitchpilot_job_description") || ""
   };
+  cvSyncedBadge.hidden = !sessionContext.resumeText && !sessionContext.jobDescription;
 
   function normalizeUrl(raw) {
     const trimmed = (raw || "").trim().replace(/\/+$/, "");
@@ -377,6 +410,30 @@ window.addEventListener("DOMContentLoaded", () => {
     if (mode === "error") statusDot.classList.add("error");
   }
 
+  let isWide = false;
+  sizeBtn.addEventListener("click", () => {
+    isWide = !isWide;
+    sizeBtn.textContent = isWide ? "Compact" : "Wide";
+    if (window.stealthHUD && typeof window.stealthHUD.resizeHUD === "function") {
+      window.stealthHUD.resizeHUD(isWide ? 620 : 440, isWide ? 440 : 320);
+    }
+  });
+
+  let hudFontScale = 1;
+  function updateHudFontScale() {
+    hudShell.style.setProperty("--hud-font-scale", String(hudFontScale));
+  }
+
+  fontDownBtn.addEventListener("click", () => {
+    hudFontScale = Math.max(0.8, hudFontScale - 0.1);
+    updateHudFontScale();
+  });
+
+  fontUpBtn.addEventListener("click", () => {
+    hudFontScale = Math.min(1.3, hudFontScale + 0.1);
+    updateHudFontScale();
+  });
+
   // Sync context and the configured API URL from the local bridge.
   if (window.stealthHUD && typeof window.stealthHUD.onPayload === "function") {
     window.stealthHUD.onPayload((ctx) => {
@@ -385,12 +442,21 @@ window.addEventListener("DOMContentLoaded", () => {
         sessionContext.apiBase = normalizeUrl(ctx.apiBase);
         localStorage.setItem("pitchpilot_api_base", sessionContext.apiBase);
       }
-      if (ctx.token) {
-        sessionContext.token = ctx.token;
-        localStorage.setItem("pitchpilot_token", ctx.token);
+      if (ctx.token !== undefined) {
+        sessionContext.token = String(ctx.token || "");
+        localStorage.setItem("pitchpilot_token", sessionContext.token);
       }
-      if (ctx.resumeText !== undefined) sessionContext.resumeText = ctx.resumeText;
-      if (ctx.jobDescription !== undefined) sessionContext.jobDescription = ctx.jobDescription;
+      if (ctx.resumeText !== undefined) {
+        sessionContext.resumeText = String(ctx.resumeText || "");
+        localStorage.setItem("pitchpilot_resume_text", sessionContext.resumeText);
+      }
+      if (ctx.jobDescription !== undefined) {
+        sessionContext.jobDescription = String(ctx.jobDescription || "");
+        localStorage.setItem("pitchpilot_job_description", sessionContext.jobDescription);
+      }
+      if (ctx.token !== undefined || ctx.resumeText !== undefined || ctx.jobDescription !== undefined) {
+        cvSyncedBadge.hidden = false;
+      }
       updateApiDisplay();
     });
   }
@@ -839,13 +905,18 @@ window.addEventListener("DOMContentLoaded", () => {
     setStatus("Stopped", "idle");
   }
 
-  listenBtn.addEventListener("click", () => {
+  function toggleListening() {
     if (isListening) {
       stopListening();
     } else {
       startListening();
     }
-  });
+  }
+
+  listenBtn.addEventListener("click", toggleListening);
+  if (window.stealthHUD && typeof window.stealthHUD.onToggleListening === "function") {
+    window.stealthHUD.onToggleListening(toggleListening);
+  }
 
   async function askCopilot(question) {
     const cleanQ = (question || "").trim();

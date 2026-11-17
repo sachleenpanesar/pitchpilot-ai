@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, Download, FileText, LoaderCircle, Save, Sparkles } from "lucide-react"
 
@@ -9,9 +9,11 @@ type Resume = { id: string; title: string; content: string }
 export default function ResumeMaker({
   initialResumes,
   initialCredits,
+  authToken,
 }: {
   initialResumes: Resume[]
   initialCredits: number
+  authToken: string
 }) {
   const [resumes, setResumes] = useState(initialResumes)
   const [selectedId, setSelectedId] = useState(initialResumes[0]?.id ?? "")
@@ -25,6 +27,26 @@ export default function ResumeMaker({
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+
+  const syncContextToHud = useCallback((nextResumeText: string, nextJobDescription: string) => {
+    void fetch("http://127.0.0.1:4789/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: authToken,
+        resumeText: nextResumeText,
+        jobDescription: nextJobDescription,
+        apiBase: window.location.origin,
+      }),
+    }).catch(() => {})
+  }, [authToken])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      syncContextToHud(resumeText, jobDescription)
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [authToken, jobDescription, resumeText, syncContextToHud])
 
   function chooseResume(id: string) {
     setSelectedId(id)
@@ -42,6 +64,7 @@ export default function ResumeMaker({
     const saved = id ? data.document : data
     setResumes((current) => [saved, ...current.filter((resume) => resume.id !== saved.id)])
     setSelectedId(saved.id)
+    syncContextToHud(content, jobDescription)
     return saved.id as string
   }
 
@@ -81,6 +104,7 @@ export default function ResumeMaker({
       setDocumentId(data.document.id)
       setNotes(data.notes || "")
       setCredits(data.credits)
+      syncContextToHud(data.resume, jobDescription)
       setMessage("Tailored resume saved to your Career Vault.")
       setResumes((current) => [
         { id: data.document.id, title: data.document.title, content: data.resume },
