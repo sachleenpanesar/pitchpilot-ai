@@ -343,9 +343,10 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const opacities = [0.94, 0.80, 0.64];
   let opacityIndex = 0;
+  const DEFAULT_API_BASE = "https://vercel.app";
 
   let sessionContext = {
-    apiBase: (localStorage.getItem("pitchpilot_api_base") || "").trim(),
+    apiBase: (localStorage.getItem("pitchpilot_api_base") || DEFAULT_API_BASE).trim(),
     token: localStorage.getItem("pitchpilot_token") || "",
     resumeText: "",
     jobDescription: ""
@@ -601,6 +602,13 @@ window.addEventListener("DOMContentLoaded", () => {
       setStatus("Enter your Vercel URL at top first", "error");
       return;
     }
+    if (!(wavBlob instanceof Blob) || wavBlob.type !== "audio/wav" || wavBlob.size <= 44) {
+      const message = "Recorded audio is not a valid, non-empty WAV file.";
+      answerText.textContent = message;
+      setStatus(message, "error");
+      return;
+    }
+
     transcriptionQueue = transcriptionQueue.then(async () => {
       const t0 = performance.now();
       const kb = Math.max(1, Math.round(wavBlob.size / 1024));
@@ -622,7 +630,12 @@ window.addEventListener("DOMContentLoaded", () => {
         });
 
         if (!res.ok) {
-          throw new Error(`Transcribe HTTP ${res.status}`);
+          const errorData = await res.json().catch(() => null);
+          const message = typeof errorData?.error === "string"
+            ? errorData.error
+            : `Transcribe HTTP ${res.status}`;
+          console.error("Transcription request failed:", message);
+          throw new Error(message);
         }
 
         const data = await res.json();
@@ -639,7 +652,9 @@ window.addEventListener("DOMContentLoaded", () => {
           setStatus("Listening…", "listening");
         }
       } catch (err) {
-        setStatus(`Transcribe error: ${err.message}`, "error");
+        const message = err instanceof Error ? err.message : String(err);
+        answerText.textContent = `Transcribe error: ${message}`;
+        setStatus(`Transcribe error: ${message}`, "error");
       }
     });
     await transcriptionQueue;
