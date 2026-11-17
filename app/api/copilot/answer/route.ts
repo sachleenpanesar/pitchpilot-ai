@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { createClient } from "@supabase/supabase-js";
 
 const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,17 +23,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (supabaseUrl && supabaseAnonKey) {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-      if (userErr || !userData?.user) {
-        return NextResponse.json(
-          { error: "Unauthorized or expired extension token." },
-          { status: 401 }
-        );
-      }
-    }
-
     const body = await req.json();
     const question = (body.question || "").trim();
     const resumeText = (body.resumeText || "").trim();
@@ -48,13 +33,12 @@ export async function POST(req: NextRequest) {
     }
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash-lite",
       generationConfig: {
         temperature: 0.35,
         maxOutputTokens: 320,
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
-      } as Record<string, unknown>,
+      },
     });
 
     const prompt = `You are a real-time interview copilot. Deliver a fast, natural, high-impact spoken answer.
