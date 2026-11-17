@@ -17,7 +17,11 @@
     {
       "matches": [
         "https://pitchpilot-ai-ruddy.vercel.app/*",
-        "http://localhost/*"
+        "http://localhost/*",
+        "https://teams.microsoft.com/*",
+        "https://teams.live.com/*",
+        "https://meet.google.com/*",
+        "https://*.zoom.us/*"
       ],
       "js": ["content.js"],
       "run_at": "document_start"

@@ -1,0 +1,18 @@
+  <script>
+    window.stealthAPI.onNewPrompt((data) => {
+      if (data.question) {
+        document.getElementById('questionBox').textContent = 'Q: ' + data.question;
+      }
+      if (data.html) {
+        document.getElementById('answerBox').innerHTML = data.html;
+      } else if (data.answer) {
+        document.getElementById('answerBox').textContent = data.answer;
+      }
+    });
+
+    window.stealthAPI.onClickThrough((isLocked) => {
+      document.getElementById('modeBadge').textContent = isLocked
+        ? 'Click-Through ON (Ctrl+Shift+T)'
+        : 'Active (Ctrl+Shift+H to Hide)';
+    });
+  </script>
